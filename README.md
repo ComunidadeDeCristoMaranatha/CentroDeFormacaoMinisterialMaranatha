@@ -13,7 +13,10 @@ O site é simples de propósito: não tem banco de dados, nem servidor, nem mens
 | `Cursos/cursos.js` | **Todo o conteúdo**: cursos, módulos, aulas, vídeos e textos | ✅ Sim, é aqui que você trabalha |
 | `index.html` | A "casca" do site (topo, rodapé) | Raramente |
 | `assets/style.css` | Cores, fontes e aparência | Só para mudar o visual |
-| `assets/app.js` | O funcionamento do site | Não |
+| `assets/app.js` | O funcionamento do site (telas) | Não |
+| `assets/conta.js` | Login de alunos e progresso salvo na conta | Não |
+| `assets/config.js` | Endereço e chave pública do Supabase | Só na configuração inicial |
+| `supabase/` | Script do banco de dados e **guia de configuração do login** | Seguir o guia uma vez |
 | `assets/logo.png` | Logo da igreja | Trocar pela versão oficial em alta qualidade |
 
 ---
@@ -75,9 +78,12 @@ Para facilitar o dia a dia, dá para instalar o **GitHub Desktop** (programa gra
 
 ## Como funciona o progresso do aluno
 
-O aluno marca as aulas como concluídas e o site lembra onde ele parou. Isso fica salvo **no navegador do próprio aparelho**. Se ele trocar de celular ou computador, o progresso começa do zero.
+As aulas são abertas para todos, sem precisar de conta. O aluno marca as aulas como concluídas e o site lembra onde ele parou:
 
-Por enquanto não há login. Isso mantém tudo gratuito e simples.
+- **Sem conta:** o progresso fica salvo só no navegador daquele aparelho.
+- **Com conta** (Google ou e-mail e senha): o progresso fica salvo na conta e aparece em qualquer aparelho. O que ele marcou antes de entrar é levado junto para a conta.
+
+O login usa o **Supabase** (gratuito). Para ligar, siga o guia em [`supabase/GUIA-CONFIGURACAO.md`](supabase/GUIA-CONFIGURACAO.md). Enquanto `assets/config.js` estiver vazio, o site funciona sem login.
 
 ---
 
@@ -86,6 +92,8 @@ Por enquanto não há login. Isso mantém tudo gratuito e simples.
 - [ ] Trocar o logo pela versão oficial em alta qualidade (`assets/logo.png`)
 - [ ] Cadastrar os primeiros cursos de verdade e apagar o curso de exemplo
 - [ ] Criar capas para os cursos (imagem 16:9, em `Cursos/capas/`)
-- [ ] Login de alunos (progresso salvo em qualquer aparelho)
-- [ ] Certificado de conclusão
+- [x] Login de alunos (progresso salvo em qualquer aparelho): código pronto, falta configurar o Supabase
+- [ ] Prova online (70% para aprovação, nova tentativa só com liberação do conselho)
+- [ ] Painel do conselho
+- [ ] Certificado de conclusão com código de validação
 - [ ] Domínio próprio (ex.: `cfm.ccmaranatha.com.br`)

@@ -30,10 +30,12 @@
         <a href="#/cursos" data-nav="cursos">Cursos</a>
         <a href="#/sobre" data-nav="sobre">Sobre</a>
       </nav>
+      <div id="conta-topo" class="conta-topo"></div>
     </div>
   </header>
 
   <main id="app" tabindex="-1"></main>
+  <div id="aviso" class="aviso" role="status" aria-live="polite"></div>
 
   <footer class="rodape">
     <div class="rodape-inner">
@@ -47,6 +49,7 @@
       <div class="rodape-links">
         <a href="https://www.instagram.com/cc.maranatha/" target="_blank" rel="noopener">Instagram</a>
         <a href="https://linktr.ee/cc.maranatha" target="_blank" rel="noopener">Links da igreja</a>
+        <a href="#/privacidade">Privacidade</a>
       </div>
     </div>
     <p class="rodape-copy">© <span id="ano"></span> Comunidade de Cristo Maranatha · “Eis que faço uma coisa nova” — Isaías 43:19</p>
@@ -54,6 +57,9 @@
 
   <!-- O conteúdo dos cursos fica neste arquivo. É ele que você edita para adicionar aulas. -->
   <script src="Cursos/cursos.js"></script>
+  <script src="assets/config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/conta.js"></script>
   <script src="assets/app.js"></script>
 </body>
 </html>

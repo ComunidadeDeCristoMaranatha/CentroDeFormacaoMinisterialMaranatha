@@ -7,27 +7,16 @@
   "use strict";
 
   var CURSOS = window.CURSOS || [];
+  var Conta = window.Conta;
   var app = document.getElementById("app");
-  var CHAVE = "cfmm-progresso-v1";
+  // Quando a página sabe se atualizar sozinha (sem recarregar o vídeo), guarda a função aqui
+  var atualizarPagina = null;
 
   document.getElementById("ano").textContent = new Date().getFullYear();
 
-  /* ---------- Progresso (fica salvo no navegador de cada aluno) ---------- */
-  var progresso = {};
-  try { progresso = JSON.parse(localStorage.getItem(CHAVE)) || {}; } catch (e) { progresso = {}; }
-
-  function salvarProgresso() {
-    try { localStorage.setItem(CHAVE, JSON.stringify(progresso)); } catch (e) { /* navegador bloqueou */ }
-  }
-  function concluida(cursoId, aulaId) {
-    return !!(progresso[cursoId] && progresso[cursoId][aulaId]);
-  }
-  function alternarConcluida(cursoId, aulaId) {
-    progresso[cursoId] = progresso[cursoId] || {};
-    if (progresso[cursoId][aulaId]) delete progresso[cursoId][aulaId];
-    else progresso[cursoId][aulaId] = Date.now();
-    salvarProgresso();
-  }
+  /* ---------- Progresso (no navegador ou na conta do aluno — ver conta.js) ---------- */
+  function concluida(cursoId, aulaId) { return Conta.concluida(cursoId, aulaId); }
+  function alternarConcluida(cursoId, aulaId) { Conta.alternar(cursoId, aulaId); }
 
   /* ---------- Ajudantes ---------- */
   function todasAulas(curso) {
@@ -323,9 +312,14 @@
       botao.innerHTML = feito ? icone.check + "Aula concluída" : "Marcar como concluída";
       botao.setAttribute("aria-pressed", feito ? "true" : "false");
       document.getElementById("lateral").innerHTML =
-        "<h3>" + esc(curso.titulo) + "</h3>" + barraProgresso(percentual(curso)) + listaModulos(curso, aula.id, true);
+        "<h3>" + esc(curso.titulo) + "</h3>" + barraProgresso(percentual(curso)) +
+        (Conta.ativo && Conta.estado.pronto && !Conta.estado.usuario
+          ? '<p class="dica-login"><a href="#/entrar">Entre na sua conta</a> para salvar seu progresso em qualquer aparelho.</p>'
+          : "") +
+        listaModulos(curso, aula.id, true);
     }
     atualizar();
+    atualizarPagina = atualizar;
     document.getElementById("botao-concluir").addEventListener("click", function () {
       alternarConcluida(curso.id, aula.id);
       atualizar();
@@ -339,10 +333,413 @@
     window.scrollTo(0, 0);
   }
 
+  function carregando() {
+    app.innerHTML = '<div class="vazio"><img src="assets/logo.png" alt=""><p>Carregando…</p></div>';
+  }
+
+  /* ============================================================
+     CONTA DO ALUNO — entrar, criar conta, cadastro, minha conta
+     ============================================================ */
+
+  var ESTADOS = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR",
+    "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"];
+  var IGREJA_CCM = "Comunidade de Cristo Maranatha";
+  var SEM_IGREJA = "Não frequento igreja no momento";
+
+  function irPara(hash) {
+    if (location.hash === hash) rota();
+    else location.hash = hash;
+  }
+
+  function aviso(texto, tipo) {
+    var el = document.getElementById("aviso");
+    el.textContent = texto;
+    el.className = "aviso visivel " + (tipo || "");
+    clearTimeout(aviso.tempo);
+    aviso.tempo = setTimeout(function () { el.className = "aviso"; }, 5000);
+  }
+
+  function traduzirErro(e) {
+    var m = String((e && (e.message || e.error_description)) || e || "");
+    var mapa = [
+      [/invalid login credentials/i, "E-mail ou senha incorretos."],
+      [/already registered|already been registered|already exists/i, "Este e-mail já tem cadastro. Tente entrar ou recuperar a senha."],
+      [/email not confirmed/i, "Você ainda não confirmou seu e-mail. Procure a mensagem de confirmação na caixa de entrada (e no spam)."],
+      [/password should be|weak password/i, "Senha fraca. Use pelo menos 8 caracteres."],
+      [/rate limit|too many requests|security purposes/i, "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente de novo."],
+      [/provider is not enabled|unsupported provider/i, "O login com Google ainda não está disponível."],
+      [/code verifier|auth code|flow state|otp_expired|expired/i, "Este link expirou ou foi aberto em outro aparelho. Peça um novo link e abra no mesmo aparelho e navegador."],
+      [/different from the old|same password/i, "A nova senha precisa ser diferente da anterior."],
+      [/invalid email|unable to validate email/i, "Esse e-mail não parece válido."],
+      [/failed to fetch|network/i, "Sem conexão com o servidor. Verifique sua internet."]
+    ];
+    for (var i = 0; i < mapa.length; i++) if (mapa[i][0].test(m)) return mapa[i][1];
+    return "Algo deu errado. Tente de novo em instantes." + (m ? " (" + m + ")" : "");
+  }
+
+  // Liga um formulário: trava o botão enquanto envia e mostra erros em português
+  function ligarFormulario(form, enviar) {
+    var msg = form.querySelector(".mensagem");
+    form.addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var botao = form.querySelector('button[type="submit"]');
+      msg.className = "mensagem";
+      msg.textContent = "";
+      botao.disabled = true;
+      Promise.resolve()
+        .then(function () { return enviar(new FormData(form)); })
+        .then(function (sucesso) {
+          if (sucesso) { msg.className = "mensagem sucesso"; msg.textContent = sucesso; }
+        })
+        .catch(function (e) {
+          if (!e || !e.validacao) console.error(e);
+          msg.className = "mensagem erro";
+          msg.textContent = e && e.validacao ? e.message : traduzirErro(e);
+        })
+        .then(function () { botao.disabled = false; });
+    });
+  }
+  function erroValidacao(texto) { var e = new Error(texto); e.validacao = true; return e; }
+
+  // Páginas que só abrem com a conta aberta. Devolve true se pode mostrar.
+  function exigirLogin() {
+    if (!Conta.ativo) { naoEncontrado(); return false; }
+    if (!Conta.estado.pronto) { carregando(); return false; }
+    if (!Conta.estado.usuario) {
+      Conta.lembrarDestino(location.hash);
+      irPara("#/entrar");
+      return false;
+    }
+    return true;
+  }
+
+  /* ---------- Botão da conta no topo ---------- */
+  function renderContaTopo() {
+    var el = document.getElementById("conta-topo");
+    if (!Conta.ativo || !Conta.estado.pronto) { el.innerHTML = ""; return; }
+    var u = Conta.estado.usuario;
+    if (!u) {
+      el.innerHTML = '<a class="botao botao-principal botao-pequeno" href="#/entrar">Entrar</a>';
+      return;
+    }
+    var nome = (Conta.estado.perfil && Conta.estado.perfil.nome_completo) || u.email || "";
+    var primeiro = nome.split(/[\s@]/)[0];
+    el.innerHTML = '<a class="avatar-topo" href="#/minha-conta" title="Minha conta">' +
+      '<span class="avatar">' + esc(primeiro.charAt(0).toUpperCase()) + "</span>" +
+      '<span class="avatar-nome">' + esc(primeiro) + "</span></a>";
+  }
+
+  /* ---------- Entrar / Criar conta / Recuperar senha ---------- */
+  function cabecalhoConta(titulo, subtitulo) {
+    return '<img class="cartao-conta-logo" src="assets/logo.png" alt="">' +
+      "<h1>" + titulo + "</h1><p class=\"cartao-conta-sub\">" + subtitulo + "</p>";
+  }
+  function botaoGoogle() {
+    if (!Conta.googleAtivo) return "";
+    return '<button type="button" class="botao botao-google" id="entrar-google">' +
+      '<svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.2 0 24 0 14.6 0 6.6 5.4 2.6 13.3l7.9 6.1C12.4 13.7 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.7 6c4.5-4.2 6.9-10.3 6.9-17.7z"/><path fill="#FBBC05" d="M10.5 28.6c-.5-1.4-.8-3-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C1 16.6 0 20.2 0 24s1 7.4 2.6 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.7-6c-2.2 1.5-5 2.3-8.2 2.3-6.3 0-11.6-4.2-13.5-10l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>' +
+      "Continuar com Google</button>" +
+      '<div class="divisor"><span>ou use seu e-mail</span></div>';
+  }
+  function ligarGoogle() {
+    var b = document.getElementById("entrar-google");
+    if (!b) return;
+    b.addEventListener("click", function () {
+      b.disabled = true;
+      Conta.entrarComGoogle().catch(function (e) {
+        b.disabled = false;
+        var msg = app.querySelector(".mensagem");
+        msg.className = "mensagem erro";
+        msg.textContent = traduzirErro(e);
+      });
+    });
+  }
+
+  function paginaEntrar(modo) {
+    if (!Conta.ativo) return naoEncontrado();
+    if (!Conta.estado.pronto) return carregando();
+    if (Conta.estado.usuario) return irPara("#/minha-conta");
+
+    var abas = '<div class="abas" role="tablist">' +
+      '<a role="tab" href="#/entrar" class="' + (modo === "entrar" ? "ativa" : "") + '">Entrar</a>' +
+      '<a role="tab" href="#/criar-conta" class="' + (modo === "criar" ? "ativa" : "") + '">Criar conta</a></div>';
+    var corpo;
+
+    if (modo === "criar") {
+      corpo = cabecalhoConta("Criar sua conta", "É gratuito. Com a conta, seu progresso fica salvo em qualquer aparelho — e, em breve, você poderá fazer as provas e receber certificados.") +
+        abas + botaoGoogle() +
+        '<form class="formulario" novalidate>' +
+          campo("Nome completo", '<input name="nome" autocomplete="name" required maxlength="150">') +
+          campo("E-mail", '<input name="email" type="email" autocomplete="email" required>') +
+          campo("Senha", '<input name="senha" type="password" autocomplete="new-password" required minlength="8">', "Pelo menos 8 caracteres.") +
+          campo("Repita a senha", '<input name="senha2" type="password" autocomplete="new-password" required>') +
+          '<button class="botao botao-principal botao-largo" type="submit">Criar minha conta</button>' +
+          '<div class="mensagem" role="alert"></div>' +
+        "</form>";
+    } else if (modo === "recuperar") {
+      corpo = cabecalhoConta("Recuperar senha", "Digite o e-mail da sua conta. Vamos enviar um link para você criar uma nova senha.") +
+        '<form class="formulario" novalidate>' +
+          campo("E-mail", '<input name="email" type="email" autocomplete="email" required>') +
+          '<button class="botao botao-principal botao-largo" type="submit">Enviar link</button>' +
+          '<div class="mensagem" role="alert"></div>' +
+        "</form>" +
+        '<p class="links-conta"><a href="#/entrar">Voltar para o login</a></p>';
+    } else {
+      corpo = cabecalhoConta("Entrar na sua conta", "Salve seu progresso e continue de onde parou em qualquer aparelho.") +
+        abas + botaoGoogle() +
+        '<form class="formulario" novalidate>' +
+          campo("E-mail", '<input name="email" type="email" autocomplete="email" required>') +
+          campo("Senha", '<input name="senha" type="password" autocomplete="current-password" required>') +
+          '<button class="botao botao-principal botao-largo" type="submit">Entrar</button>' +
+          '<div class="mensagem" role="alert"></div>' +
+        "</form>" +
+        '<p class="links-conta"><a href="#/recuperar-senha">Esqueci minha senha</a></p>';
+    }
+
+    app.innerHTML = '<div class="container pagina-conta"><div class="cartao-conta">' + corpo + "</div></div>";
+    ligarGoogle();
+
+    var form = app.querySelector("form");
+    ligarFormulario(form, function (d) {
+      var email = String(d.get("email") || "").trim();
+      if (!/^\S+@\S+\.\S+$/.test(email)) throw erroValidacao("Digite um e-mail válido.");
+
+      if (modo === "criar") {
+        var nome = String(d.get("nome") || "").trim();
+        if (nome.split(/\s+/).length < 2) throw erroValidacao("Digite seu nome completo (nome e sobrenome).");
+        if (String(d.get("senha")).length < 8) throw erroValidacao("A senha precisa ter pelo menos 8 caracteres.");
+        if (d.get("senha") !== d.get("senha2")) throw erroValidacao("As duas senhas não são iguais.");
+        return Conta.criarConta(nome, email, String(d.get("senha"))).then(function (r) {
+          if (r.precisaConfirmar) {
+            form.reset();
+            return "Quase lá! Enviamos um link de confirmação para " + email + ". Abra o e-mail neste mesmo aparelho e clique no link (confira também o spam).";
+          }
+        });
+      }
+      if (modo === "recuperar") {
+        return Conta.recuperarSenha(email).then(function () {
+          return "Se existir uma conta com esse e-mail, você vai receber o link em alguns minutos. Abra o e-mail neste mesmo aparelho.";
+        });
+      }
+      if (!d.get("senha")) throw erroValidacao("Digite sua senha.");
+      return Conta.entrarComEmail(email, String(d.get("senha")));
+    });
+
+    // Erro que veio no endereço (ex.: link de e-mail expirado)
+    if (Conta.estado.erroUrl) {
+      var msg = form.querySelector(".mensagem");
+      msg.className = "mensagem erro";
+      msg.textContent = traduzirErro(Conta.estado.erroUrl);
+      Conta.estado.erroUrl = null;
+    }
+    window.scrollTo(0, 0);
+  }
+
+  function campo(rotulo, controle, dica) {
+    return '<label class="campo"><span class="campo-rotulo">' + rotulo + "</span>" + controle +
+      (dica ? '<small class="campo-dica">' + dica + "</small>" : "") + "</label>";
+  }
+
+  /* ---------- Formulário de dados pessoais (cadastro e minha conta) ---------- */
+  function formPerfil(p, textoBotao) {
+    p = p || {};
+    var igreja = p.igreja || "";
+    var tipoIgreja = !igreja ? "" : igreja === IGREJA_CCM ? "ccm" : igreja === SEM_IGREJA ? "nenhuma" : "outra";
+    var radio = function (valor, texto) {
+      return '<label class="opcao"><input type="radio" name="tipo_igreja" value="' + valor + '"' +
+        (tipoIgreja === valor ? " checked" : "") + " required><span>" + texto + "</span></label>";
+    };
+    return '<form class="formulario" id="form-perfil" novalidate>' +
+      campo("Nome completo", '<input name="nome_completo" autocomplete="name" required maxlength="150" value="' + esc(p.nome_completo) + '">', "Do jeito que deve aparecer no certificado.") +
+      campo("WhatsApp", '<input name="telefone" type="tel" autocomplete="tel" required maxlength="30" placeholder="(85) 99999-9999" value="' + esc(p.telefone) + '">') +
+      '<div class="campo-linha">' +
+        campo("Cidade", '<input name="cidade" autocomplete="address-level2" required maxlength="100" value="' + esc(p.cidade) + '">') +
+        campo("Estado", '<select name="estado" required><option value="">UF</option>' + ESTADOS.map(function (uf) {
+          return '<option value="' + uf + '"' + (p.estado === uf ? " selected" : "") + ">" + uf + "</option>";
+        }).join("") + "</select>") +
+      "</div>" +
+      '<fieldset class="campo"><legend class="campo-rotulo">Qual igreja você frequenta?</legend>' +
+        radio("ccm", IGREJA_CCM) +
+        radio("outra", "Outra igreja") +
+        '<input name="outra_igreja" class="campo-extra" placeholder="Nome da igreja" maxlength="150" value="' + esc(tipoIgreja === "outra" ? igreja : "") + '"' + (tipoIgreja === "outra" ? "" : " hidden") + ">" +
+        radio("nenhuma", SEM_IGREJA) +
+      "</fieldset>" +
+      (p.aceitou_termos_em ? "" :
+        '<label class="opcao opcao-termos"><input type="checkbox" name="termos" required><span>Li e concordo com a <a href="#/privacidade" target="_blank">Política de Privacidade</a> e com o uso dos meus dados pelo CFM.</span></label>') +
+      '<button class="botao botao-principal botao-largo" type="submit">' + textoBotao + "</button>" +
+      '<div class="mensagem" role="alert"></div>' +
+    "</form>";
+  }
+
+  function ligarFormPerfil(aoSalvar) {
+    var form = document.getElementById("form-perfil");
+    var outra = form.querySelector('[name="outra_igreja"]');
+    form.querySelectorAll('[name="tipo_igreja"]').forEach(function (r) {
+      r.addEventListener("change", function () {
+        outra.hidden = r.value !== "outra" || !r.checked;
+        if (!outra.hidden) outra.focus();
+      });
+    });
+    ligarFormulario(form, function (d) {
+      var dados = {
+        nome_completo: String(d.get("nome_completo") || "").trim().replace(/\s+/g, " "),
+        telefone: String(d.get("telefone") || "").trim(),
+        cidade: String(d.get("cidade") || "").trim(),
+        estado: String(d.get("estado") || "")
+      };
+      var tipo = d.get("tipo_igreja");
+      dados.igreja = tipo === "ccm" ? IGREJA_CCM : tipo === "nenhuma" ? SEM_IGREJA : String(d.get("outra_igreja") || "").trim();
+
+      if (dados.nome_completo.split(" ").length < 2) throw erroValidacao("Digite seu nome completo (nome e sobrenome).");
+      if (dados.telefone.replace(/\D/g, "").length < 10) throw erroValidacao("Digite o WhatsApp com DDD.");
+      if (!dados.cidade || !dados.estado) throw erroValidacao("Informe sua cidade e estado.");
+      if (!tipo) throw erroValidacao("Diga qual igreja você frequenta.");
+      if (!dados.igreja) throw erroValidacao("Digite o nome da igreja.");
+      var termos = form.querySelector('[name="termos"]');
+      if (termos && !termos.checked) throw erroValidacao("Para continuar, é preciso concordar com a Política de Privacidade.");
+      if (termos) dados.aceitou_termos_em = new Date().toISOString();
+
+      return Conta.salvarPerfil(dados).then(aoSalvar);
+    });
+  }
+
+  /* ---------- Completar cadastro (logo depois de criar a conta) ---------- */
+  function paginaCadastro() {
+    if (!exigirLogin()) return;
+    app.innerHTML = '<div class="container pagina-conta"><div class="cartao-conta cartao-conta-largo">' +
+      cabecalhoConta("Complete seu cadastro", "Só mais alguns dados. Eles serão usados pela secretaria do CFM e, no futuro, na emissão dos seus certificados.") +
+      formPerfil(Conta.estado.perfil, "Salvar e continuar") +
+    "</div></div>";
+    ligarFormPerfil(function () {
+      aviso("Cadastro concluído. Bem-vindo(a)!", "sucesso");
+      irPara(Conta.pegarDestino() || "#/minha-conta");
+    });
+    window.scrollTo(0, 0);
+  }
+
+  /* ---------- Minha conta ---------- */
+  function paginaMinhaConta() {
+    if (!exigirLogin()) return;
+    var u = Conta.estado.usuario;
+    var p = Conta.estado.perfil || {};
+    var primeiro = (p.nome_completo || "").split(" ")[0];
+    var comGoogle = (u.app_metadata && u.app_metadata.provider) === "google";
+
+    var emAndamento = CURSOS.filter(function (c) { return disponivel(c) && percentual(c) > 0; });
+    var meusCursos = emAndamento.length
+      ? emAndamento.map(function (c) {
+          var pc = percentual(c);
+          var prox = proximaAula(c);
+          return '<div class="meu-curso"><div class="meu-curso-info"><h3>' + esc(c.titulo) + "</h3>" + barraProgresso(pc) + "</div>" +
+            '<a class="botao botao-secundario botao-pequeno" href="#/curso/' + esc(c.id) + (pc < 100 && prox ? "/aula/" + esc(prox.id) : "") + '">' +
+            (pc === 100 ? "Ver curso" : "Continuar") + "</a></div>";
+        }).join("")
+      : '<p class="bloco-texto">Você ainda não começou nenhum curso. <a href="#/cursos">Ver cursos disponíveis</a></p>';
+
+    app.innerHTML =
+      '<section class="curso-topo">' + chamaHero() +
+        '<div class="curso-topo-inner">' +
+          '<nav class="trilha" aria-label="Você está em"><a href="#/">Início</a> › <span>Minha conta</span></nav>' +
+          "<h1>Olá" + (primeiro ? ", " + esc(primeiro) : "") + "!</h1>" +
+          '<p class="lead">Aqui ficam seus cursos e seus dados.</p>' +
+        "</div>" +
+      "</section>" +
+      '<div class="container curso-corpo">' +
+        "<div>" +
+          "<h2>Meus cursos</h2>" + '<div class="meus-cursos">' + meusCursos + "</div>" +
+          '<h2 style="margin-top:44px">Meus dados</h2>' +
+          '<div class="cartao">' + formPerfil(p, "Salvar alterações") + "</div>" +
+        "</div>" +
+        "<aside>" +
+          '<div class="cartao">' +
+            "<h3>Sua conta</h3>" +
+            '<p class="bloco-texto" style="font-size:15px">' + esc(u.email) + "<br><small>" +
+              (comGoogle ? "Você entra com sua conta Google." : "Você entra com e-mail e senha.") + "</small></p>" +
+            '<button class="botao botao-secundario botao-largo" type="button" id="botao-sair">Sair da conta</button>' +
+          "</div>" +
+          '<div class="cartao" style="margin-top:16px">' +
+            "<h3>Seus dados e privacidade</h3>" +
+            '<p class="bloco-texto" style="font-size:14px">Veja como usamos seus dados na <a href="#/privacidade">Política de Privacidade</a>.</p>' +
+            '<button class="botao botao-perigo botao-largo" type="button" id="botao-excluir">Excluir minha conta</button>' +
+          "</div>" +
+        "</aside>" +
+      "</div>";
+
+    ligarFormPerfil(function () { aviso("Dados salvos.", "sucesso"); });
+    document.getElementById("botao-sair").addEventListener("click", function () {
+      Conta.sair().catch(function (e) { aviso(traduzirErro(e), "erro"); });
+    });
+    document.getElementById("botao-excluir").addEventListener("click", function () {
+      var ok = window.confirm("Tem certeza? Sua conta, seus dados e seu progresso serão apagados para sempre. Isso não pode ser desfeito.");
+      if (!ok) return;
+      Conta.excluirConta()
+        .then(function () { aviso("Sua conta foi excluída.", "sucesso"); })
+        .catch(function (e) { aviso(traduzirErro(e), "erro"); });
+    });
+    window.scrollTo(0, 0);
+  }
+
+  /* ---------- Nova senha (depois do link "esqueci minha senha") ---------- */
+  function paginaNovaSenha() {
+    if (!exigirLogin()) return;
+    app.innerHTML = '<div class="container pagina-conta"><div class="cartao-conta">' +
+      cabecalhoConta("Criar nova senha", "Escolha uma nova senha para a sua conta.") +
+      '<form class="formulario" novalidate>' +
+        campo("Nova senha", '<input name="senha" type="password" autocomplete="new-password" required minlength="8">', "Pelo menos 8 caracteres.") +
+        campo("Repita a nova senha", '<input name="senha2" type="password" autocomplete="new-password" required>') +
+        '<button class="botao botao-principal botao-largo" type="submit">Salvar nova senha</button>' +
+        '<div class="mensagem" role="alert"></div>' +
+      "</form></div></div>";
+    ligarFormulario(app.querySelector("form"), function (d) {
+      if (String(d.get("senha")).length < 8) throw erroValidacao("A senha precisa ter pelo menos 8 caracteres.");
+      if (d.get("senha") !== d.get("senha2")) throw erroValidacao("As duas senhas não são iguais.");
+      return Conta.definirNovaSenha(String(d.get("senha"))).then(function () {
+        aviso("Senha alterada com sucesso.", "sucesso");
+        irPara("#/minha-conta");
+      });
+    });
+    window.scrollTo(0, 0);
+  }
+
+  /* ---------- Política de privacidade ---------- */
+  function paginaPrivacidade() {
+    app.innerHTML =
+      '<div class="container texto-legal">' +
+        '<nav class="trilha" aria-label="Você está em"><a href="#/">Início</a> › <span>Privacidade</span></nav>' +
+        "<h1>Política de Privacidade</h1>" +
+        '<div class="bloco-texto">' + formatarTexto(
+          "O Centro de Formação Ministerial Maranatha (CFM), ministério da Comunidade de Cristo Maranatha, respeita a sua privacidade e segue a Lei Geral de Proteção de Dados (LGPD).\n\n" +
+          "## Quais dados coletamos\n" +
+          "- Nome completo, e-mail, WhatsApp, cidade, estado e igreja que você frequenta\n" +
+          "- As aulas que você marcou como concluídas\n\n" +
+          "## Para que usamos\n" +
+          "- Salvar seu progresso nos cursos\n" +
+          "- Emitir certificados com o seu nome\n" +
+          "- Entrar em contato sobre os cursos do CFM\n\n" +
+          "Não vendemos nem compartilhamos seus dados com empresas ou outras organizações.\n\n" +
+          "## Quem tem acesso\n" +
+          "Apenas a equipe responsável pelo CFM. Os dados ficam guardados com segurança no Supabase, o serviço que usamos para as contas da plataforma.\n\n" +
+          "## Seus direitos\n" +
+          "Você pode ver e corrigir seus dados a qualquer momento em **Minha conta**. Também pode **excluir sua conta** por lá, e todos os seus dados são apagados. Para qualquer dúvida, fale com a secretaria do CFM pelos canais oficiais da igreja."
+        ) + "</div>" +
+      "</div>";
+    window.scrollTo(0, 0);
+  }
+
   /* ---------- Rotas (endereços do site) ---------- */
   function rota() {
     var partes = location.hash.replace(/^#\/?/, "").split("/").filter(Boolean).map(decodeURIComponent);
-    var menu = "inicio";
+    var menu = "";
+    atualizarPagina = null;
+
+    // Quem entrou mas ainda não completou o cadastro vai primeiro para o cadastro
+    var livres = ["cadastro", "privacidade", "nova-senha"];
+    if (Conta.ativo && Conta.estado.pronto && Conta.estado.usuario && Conta.estado.perfil &&
+        !Conta.perfilCompleto() && livres.indexOf(partes[0]) < 0) {
+      Conta.lembrarDestino(location.hash || "#/");
+      irPara("#/cadastro");
+      return;
+    }
 
     if (partes[0] === "curso" && partes[1]) {
       menu = "cursos";
@@ -353,15 +750,57 @@
     } else if (!partes[0] || partes[0] === "cursos" || partes[0] === "sobre") {
       menu = partes[0] || "inicio";
       paginaInicio(partes[0]);
-    } else {
-      naoEncontrado();
-    }
+    } else if (partes[0] === "entrar") paginaEntrar("entrar");
+    else if (partes[0] === "criar-conta") paginaEntrar("criar");
+    else if (partes[0] === "recuperar-senha") paginaEntrar("recuperar");
+    else if (partes[0] === "cadastro") paginaCadastro();
+    else if (partes[0] === "minha-conta") paginaMinhaConta();
+    else if (partes[0] === "nova-senha") paginaNovaSenha();
+    else if (partes[0] === "privacidade") paginaPrivacidade();
+    else naoEncontrado();
 
     document.querySelectorAll("[data-nav]").forEach(function (a) {
       a.classList.toggle("ativo", a.getAttribute("data-nav") === menu);
     });
+    renderContaTopo();
   }
 
-  window.addEventListener("hashchange", rota);
+  window.addEventListener("hashchange", function (ev) {
+    // Ao ir para "Entrar", lembra de onde a pessoa veio para voltar depois
+    if (/^#\/(entrar|criar-conta)/.test(location.hash)) {
+      var antes = (ev.oldURL || "").split("#")[1] || "";
+      if (antes && antes !== "/" && !/^\/(entrar|criar-conta|recuperar-senha|cadastro|nova-senha)/.test(antes)) {
+        Conta.lembrarDestino("#" + antes);
+      }
+    }
+    rota();
+  });
+
+  Conta.aoMudar(function (evento, detalhe) {
+    if (evento === "pronto") {
+      if (Conta.estado.acaoUrl === "nova-senha" && Conta.estado.usuario) return irPara("#/nova-senha");
+      if (Conta.estado.acabouDeEntrar) return aoEntrar();
+      if (Conta.estado.erroUrl && !/^#\/(entrar|criar-conta|recuperar-senha)/.test(location.hash)) return irPara("#/entrar");
+      if (atualizarPagina) { atualizarPagina(); renderContaTopo(); return; }
+      return rota();
+    }
+    if (evento === "entrou") return aoEntrar();
+    if (evento === "saiu") return irPara("#/");
+    if (evento === "perfil") return renderContaTopo();
+    if (evento === "progresso") return atualizarPagina ? atualizarPagina() : rota();
+    if (evento === "erro") return aviso(detalhe, "erro");
+  });
+
+  function aoEntrar() {
+    var destino = Conta.pegarDestino() || "#/minha-conta";
+    if (Conta.estado.perfil && !Conta.perfilCompleto()) {
+      Conta.lembrarDestino(destino);
+      return irPara("#/cadastro");
+    }
+    aviso("Você entrou na sua conta.", "sucesso");
+    irPara(destino);
+  }
+
   rota();
+  Conta.iniciar();
 })();
