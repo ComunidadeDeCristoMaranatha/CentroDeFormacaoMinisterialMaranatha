@@ -41,6 +41,12 @@ No topo do `cursos.js` tem um **modelo completo** de curso pronto para copiar.
 ### Liberar um curso "Em breve"
 Troque `status: "em-breve"` por `status: "disponivel"` e adicione pelo menos uma aula.
 
+### Mostrar, esconder e programar datas de um curso
+Isso é feito pelo próprio site, só por administradores: **Painel → aba Cursos**. Para cada curso dá para:
+- mostrar ou esconder do site;
+- escolher a data em que as aulas abrem (antes disso, o curso aparece como "Abre em …");
+- escolher a data em que o curso some do site sozinho.
+
 ### Escrever o texto da aula
 - Uma **linha em branco** separa os parágrafos
 - `**palavra**` fica em **negrito**

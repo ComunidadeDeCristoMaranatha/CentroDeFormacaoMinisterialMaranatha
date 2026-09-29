@@ -537,6 +537,31 @@ a.linha-pessoa:hover { background: var(--superficie-2); }
 .lista-equipe a { color: var(--texto); }
 .rotulo-lista { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--texto-suave); margin: 14px 0 6px; }
 
+/* ============================================================
+   VISIBILIDADE DOS CURSOS
+   ============================================================ */
+.etiqueta.agendado { background: var(--amarelo); color: #1a0f08; }
+.etiqueta.oculto { background: #2b2420; color: #ffb3a3; border: 1px dashed #ff8f7a; }
+.aviso-admin {
+  display: flex; gap: 14px; align-items: flex-start; margin-bottom: 28px;
+  background: rgba(251,176,59,.08); border: 1px dashed var(--amarelo);
+  padding: 16px 20px; border-radius: var(--raio);
+}
+.aviso-admin svg { color: var(--amarelo); flex-shrink: 0; margin-top: 2px; }
+.aviso-admin p { margin: 4px 0 0; color: var(--texto-suave); }
+
+.lista-cursos-config { display: grid; gap: 16px; }
+.curso-config-topo { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 16px; }
+.curso-config-topo h3 { font-family: var(--fonte-titulo); font-size: 22px; margin: 0 0 2px; }
+.estado { font-size: 13px; font-weight: 600; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--borda); }
+.estado-aberto { color: var(--sucesso); border-color: rgba(127,211,138,.45); }
+.estado-agendado { color: var(--amarelo); border-color: rgba(251,176,59,.5); }
+.estado-oculto { color: #ff8f7a; border-color: rgba(255,143,122,.45); }
+.campo-linha-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 560px) { .campo-linha-2 { grid-template-columns: 1fr; } }
+.formulario input[type="date"] { color-scheme: dark; }
+.curso-config-acoes { display: flex; flex-wrap: wrap; gap: 10px; }
+
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; scroll-behavior: auto !important; }
 }

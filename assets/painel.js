@@ -36,7 +36,7 @@
 
   // Cursos que a pessoa logada acompanha no painel
   function cursosVisiveis() {
-    if (Conta.ehConselho()) return C.cursos.filter(C.disponivel);
+    if (Conta.ehConselho()) return C.cursos.filter(C.temAulas);
     var meus = (Conta.estado.equipe || []).map(function (e) { return e.curso_id; });
     return C.cursos.filter(function (c) { return meus.indexOf(c.id) >= 0; });
   }
@@ -94,8 +94,9 @@
       '<div class="container painel">' +
         '<div class="painel-barra">' +
           '<nav class="abas-painel">' +
-            '<a href="#/painel" class="' + (aba !== "equipe" ? "ativa" : "") + '">Pessoas</a>' +
+            '<a href="#/painel" class="' + (aba === "pessoas" || aba === "pessoa" ? "ativa" : "") + '">Pessoas</a>' +
             (Conta.ehConselho() ? '<a href="#/painel/equipe" class="' + (aba === "equipe" ? "ativa" : "") + '">Equipe</a>' : "") +
+            (Conta.ehAdmin() ? '<a href="#/painel/cursos" class="' + (aba === "cursos" ? "ativa" : "") + '">Cursos</a>' : "") +
           "</nav>" +
           '<button class="botao botao-secundario botao-pequeno" type="button" id="painel-atualizar">Atualizar dados</button>' +
         "</div>" +
@@ -109,6 +110,19 @@
 
     var hash = location.hash;
     var el = document.getElementById("painel-conteudo");
+
+    // A aba Cursos não precisa da lista de pessoas
+    if (aba === "cursos") {
+      if (!Conta.ehAdmin()) { el.innerHTML = '<p class="painel-vazio">Só administradores podem gerenciar os cursos.</p>'; return; }
+      C.recarregarConfigCursos().then(function () {
+        if (location.hash === hash && document.body.contains(el)) renderCursos(el);
+      }).catch(function (e) {
+        el.innerHTML = '<div class="mensagem erro">' + esc(erroMsg(e)) + "</div>";
+      });
+      window.scrollTo(0, 0);
+      return;
+    }
+
     carregar().then(function (d) {
       if (location.hash !== hash || !document.body.contains(el)) return; // a pessoa já mudou de página
       if (aba === "equipe" && Conta.ehConselho()) renderEquipe(el, d);
@@ -366,6 +380,86 @@
             if (r.error) { b.disabled = false; return mostrarErro(r.error); }
             recarregar("Função removida.");
           });
+      });
+    });
+  }
+
+  /* ---------- Aba: Cursos (só admin) — mostrar/esconder e datas ---------- */
+  // Datas no horário de Fortaleza (UTC−3, sem horário de verão)
+  function paraCampoData(ts) {
+    return ts ? new Date(Date.parse(ts) - 3 * 3600e3).toISOString().slice(0, 10) : "";
+  }
+  function doCampoData(valor, fimDoDia) {
+    return valor ? valor + (fimDoDia ? "T23:59:59-03:00" : "T00:00:00-03:00") : null;
+  }
+
+  function descreverSituacao(curso) {
+    var cfg = C.configDoCurso(curso.id) || {};
+    var s = C.situacao(curso);
+    if (s === "oculto") return { texto: "Escondido do site", classe: "estado-oculto" };
+    if (s === "encerrado") return { texto: "Escondido · encerrou em " + C.dataCurta(cfg.fecha_em), classe: "estado-oculto" };
+    if (s === "agendado") return { texto: "Visível · aulas abrem em " + C.dataCurta(cfg.abre_em), classe: "estado-agendado" };
+    return { texto: "Visível para todos" + (cfg.fecha_em ? " até " + C.dataCurta(cfg.fecha_em) : ""), classe: "estado-aberto" };
+  }
+
+  function renderCursos(el) {
+    el.innerHTML =
+      '<div class="aviso-em-breve">' + C.icone.info +
+        "<div><strong>Como funciona</strong><p>Escolha se cada curso aparece no site e, se quiser, programe as datas. " +
+        "Antes da data de abertura, o curso aparece como <strong>“Abre em …”</strong> e as aulas ficam bloqueadas. " +
+        "Depois da data final, ele <strong>some do site sozinho</strong>. Deixe as datas em branco para não usar. " +
+        "Como administrador, você continua vendo todos os cursos, com um aviso.</p></div>" +
+      "</div>" +
+      '<div class="lista-cursos-config">' + C.cursos.map(function (curso) {
+        var cfg = C.configDoCurso(curso.id) || { visivel: true };
+        var estado = descreverSituacao(curso);
+        var qtd = C.todasAulas(curso).length;
+        return '<div class="cartao curso-config" data-curso="' + esc(curso.id) + '">' +
+          '<div class="curso-config-topo">' +
+            "<div><h3>" + esc(curso.titulo) + "</h3><small class=\"suave\">" +
+              (C.temAulas(curso) ? C.plural(qtd, "aula", "aulas") : "Sem aulas ainda — aparece como “Em breve”") + "</small></div>" +
+            '<span class="estado ' + estado.classe + '">' + esc(estado.texto) + "</span>" +
+          "</div>" +
+          '<div class="formulario">' +
+            '<label class="opcao"><input type="checkbox" data-campo="visivel"' + (cfg.visivel ? " checked" : "") + "><span>Mostrar este curso no site</span></label>" +
+            '<div class="campo-linha-2">' +
+              '<label class="campo"><span class="campo-rotulo">Abrir as aulas a partir de</span><input type="date" data-campo="abre" value="' + paraCampoData(cfg.abre_em) + '"></label>' +
+              '<label class="campo"><span class="campo-rotulo">Esconder do site depois de</span><input type="date" data-campo="fecha" value="' + paraCampoData(cfg.fecha_em) + '"></label>' +
+            "</div>" +
+            '<div class="curso-config-acoes"><button class="botao botao-principal botao-pequeno" type="button" data-salvar>Salvar</button>' +
+              '<a class="botao botao-secundario botao-pequeno" href="#/curso/' + esc(curso.id) + '">Ver página do curso</a></div>' +
+            '<div class="mensagem" role="alert"></div>' +
+          "</div>" +
+        "</div>";
+      }).join("") + "</div>";
+
+    el.querySelectorAll(".curso-config").forEach(function (cartao) {
+      var botao = cartao.querySelector("[data-salvar]");
+      var msg = cartao.querySelector(".mensagem");
+      botao.addEventListener("click", function () {
+        var abre = cartao.querySelector('[data-campo="abre"]').value;
+        var fecha = cartao.querySelector('[data-campo="fecha"]').value;
+        msg.className = "mensagem";
+        msg.textContent = "";
+        if (abre && fecha && fecha < abre) {
+          msg.className = "mensagem erro";
+          msg.textContent = "A data para esconder precisa ser depois da data de abertura.";
+          return;
+        }
+        botao.disabled = true;
+        Conta.cliente.from("cursos_config").upsert({
+          curso_id: cartao.dataset.curso,
+          visivel: cartao.querySelector('[data-campo="visivel"]').checked,
+          abre_em: doCampoData(abre, false),
+          fecha_em: doCampoData(fecha, true)
+        }, { onConflict: "curso_id" }).then(function (r) {
+          botao.disabled = false;
+          if (r.error) { msg.className = "mensagem erro"; msg.textContent = erroMsg(r.error); return; }
+          return C.recarregarConfigCursos().then(function () {
+            C.aviso("Configuração do curso salva.", "sucesso");
+            renderCursos(el);
+          });
+        });
       });
     });
   }

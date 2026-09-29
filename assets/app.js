@@ -32,8 +32,49 @@
     var feitas = aulas.filter(function (x) { return concluida(curso.id, x.aula.id); }).length;
     return Math.round((feitas / aulas.length) * 100);
   }
-  function disponivel(curso) {
+  /* ---------- Mostrar/esconder cursos (controlado pelos admins no Painel → Cursos) ---------- */
+  var CHAVE_CONFIG = "cfm-config-cursos-v1";
+  var configCursos = {};
+  try { configCursos = JSON.parse(localStorage.getItem(CHAVE_CONFIG)) || {}; } catch (e) { configCursos = {}; }
+
+  function carregarConfigCursos() {
+    if (!Conta.cliente) return Promise.resolve(false);
+    return Conta.cliente.from("cursos_config").select("curso_id, visivel, abre_em, fecha_em").then(function (r) {
+      if (r.error) { console.error(r.error); return false; }
+      var novo = {};
+      r.data.forEach(function (l) { novo[l.curso_id] = l; });
+      var mudou = JSON.stringify(novo) !== JSON.stringify(configCursos);
+      configCursos = novo;
+      try { localStorage.setItem(CHAVE_CONFIG, JSON.stringify(novo)); } catch (e) { /* ok */ }
+      return mudou;
+    });
+  }
+
+  // "aberto" | "agendado" (abre depois) | "encerrado" (já fechou) | "oculto" (escondido pelo admin)
+  function situacao(curso) {
+    var c = configCursos[curso.id];
+    if (!c) return "aberto";
+    if (!c.visivel) return "oculto";
+    var agora = Date.now();
+    if (c.fecha_em && agora > Date.parse(c.fecha_em)) return "encerrado";
+    if (c.abre_em && agora < Date.parse(c.abre_em)) return "agendado";
+    return "aberto";
+  }
+  function ehAdmin() { return Conta.ativo && Conta.ehAdmin(); }
+  function temAulas(curso) {
     return curso.status !== "em-breve" && todasAulas(curso).length > 0;
+  }
+  // Aparece na lista de cursos? (admins sempre veem tudo, com aviso)
+  function visivelNoSite(curso) {
+    var s = situacao(curso);
+    return s === "aberto" || s === "agendado" || ehAdmin();
+  }
+  // As aulas podem ser abertas?
+  function disponivel(curso) {
+    return temAulas(curso) && (situacao(curso) === "aberto" || ehAdmin());
+  }
+  function dataCurta(d) {
+    return new Date(d).toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza" });
   }
   function proximaAula(curso) {
     var aulas = todasAulas(curso);
@@ -51,12 +92,23 @@
   // linha em branco = novo parágrafo · **texto** = negrito · linhas com "- " = lista · "## " = subtítulo
   function negrito(t) { return esc(t).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>"); }
   function formatarLinhas(linhas) {
-    if (!linhas.length) return "";
-    if (linhas[0].indexOf("## ") === 0) return "<h3>" + negrito(linhas[0].slice(3)) + "</h3>" + formatarLinhas(linhas.slice(1));
-    if (linhas.every(function (l) { return l.indexOf("- ") === 0; })) {
-      return "<ul>" + linhas.map(function (l) { return "<li>" + negrito(l.slice(2)) + "</li>"; }).join("") + "</ul>";
+    var html = "", paragrafo = [], lista = [];
+    function fecharParagrafo() {
+      if (paragrafo.length) html += "<p>" + paragrafo.map(negrito).join("<br>") + "</p>";
+      paragrafo = [];
     }
-    return "<p>" + linhas.map(negrito).join("<br>") + "</p>";
+    function fecharLista() {
+      if (lista.length) html += "<ul>" + lista.map(function (l) { return "<li>" + negrito(l) + "</li>"; }).join("") + "</ul>";
+      lista = [];
+    }
+    linhas.forEach(function (l) {
+      if (l.indexOf("## ") === 0) { fecharParagrafo(); fecharLista(); html += "<h3>" + negrito(l.slice(3)) + "</h3>"; }
+      else if (l.indexOf("- ") === 0) { fecharParagrafo(); lista.push(l.slice(2)); }
+      else { fecharLista(); paragrafo.push(l); }
+    });
+    fecharParagrafo();
+    fecharLista();
+    return html;
   }
   function formatarTexto(texto) {
     if (!texto) return "";
@@ -99,16 +151,28 @@
   }
 
   /* ---------- Card de curso ---------- */
+  function etiquetaCurso(curso) {
+    var s = situacao(curso);
+    var c = configCursos[curso.id] || {};
+    if (s === "oculto") return { texto: "Oculto", classe: "oculto" };
+    if (s === "encerrado") return { texto: "Encerrado", classe: "oculto" };
+    if (!temAulas(curso)) return { texto: "Em breve", classe: "" };
+    if (s === "agendado") return { texto: "Abre em " + dataCurta(c.abre_em), classe: "agendado" };
+    return { texto: "Disponível", classe: "disponivel" };
+  }
+
   function cardCurso(curso) {
     var ok = disponivel(curso);
+    var clicavel = temAulas(curso);
+    var etiqueta = etiquetaCurso(curso);
     var qtd = todasAulas(curso).length;
     var p = percentual(curso);
-    var tag = ok ? "a" : "div";
-    var href = ok ? ' href="#/curso/' + esc(curso.id) + '"' : "";
+    var tag = clicavel ? "a" : "div";
+    var href = clicavel ? ' href="#/curso/' + esc(curso.id) + '"' : "";
     return "<" + tag + ' class="card-curso' + (ok ? "" : " em-breve") + '"' + href + ">" +
       '<div class="card-capa">' +
         (curso.capa ? '<img src="' + esc(curso.capa) + '" alt="" loading="lazy">' : icone.chama + '<span class="card-capa-titulo">' + esc(curso.titulo) + "</span>") +
-        '<span class="etiqueta ' + (ok ? "disponivel" : "") + '">' + (ok ? "Disponível" : "Em breve") + "</span>" +
+        '<span class="etiqueta ' + etiqueta.classe + '">' + esc(etiqueta.texto) + "</span>" +
       "</div>" +
       '<div class="card-corpo">' +
         "<h3>" + esc(curso.titulo) + "</h3>" +
@@ -125,7 +189,9 @@
 
   /* ---------- Página inicial ---------- */
   function paginaInicio(ancora) {
-    var ordenados = CURSOS.slice().sort(function (a, b) { return disponivel(b) - disponivel(a); });
+    // Disponíveis primeiro, depois os que abrem em breve, depois os em preparação
+    var peso = function (c) { return disponivel(c) ? 2 : temAulas(c) ? 1 : 0; };
+    var ordenados = CURSOS.filter(visivelNoSite).sort(function (a, b) { return peso(b) - peso(a); });
     app.innerHTML =
       '<section class="hero">' + chamaHero() + chamaHero("hero-chama-2") +
         '<div class="hero-inner">' +
@@ -214,11 +280,27 @@
 
   /* ---------- Página do curso ---------- */
   function paginaCurso(curso) {
+    if (!visivelNoSite(curso)) return cursoIndisponivel();
     var ok = disponivel(curso);
+    var s = situacao(curso);
+    var cfg = configCursos[curso.id] || {};
     var aulas = todasAulas(curso);
     var p = percentual(curso);
     var prox = proximaAula(curso);
     var textoBotao = p === 0 ? "Começar o curso" : p === 100 ? "Rever o curso" : "Continuar de onde parei";
+
+    var aviso = "";
+    if (s !== "aberto" && ehAdmin()) {
+      var motivo = s === "oculto" ? "este curso está <strong>oculto</strong> para os alunos."
+        : s === "encerrado" ? "o prazo deste curso terminou em " + dataCurta(cfg.fecha_em) + " e ele não aparece mais para os alunos."
+        : "para os alunos, as aulas só abrem em " + dataCurta(cfg.abre_em) + ".";
+      aviso = '<div class="aviso-admin">' + icone.info + "<div><strong>Visão de administrador</strong><p>Você está vendo porque é admin: " + motivo +
+        ' Para mudar, vá em <a href="#/painel/cursos">Painel → Cursos</a>.</p></div></div>';
+    } else if (!temAulas(curso)) {
+      aviso = '<div class="aviso-em-breve">' + icone.info + "<div><strong>Este curso está sendo preparado.</strong><p>As aulas serão liberadas em breve. Acompanhe as novidades no Instagram da igreja.</p></div></div>";
+    } else if (s === "agendado") {
+      aviso = '<div class="aviso-em-breve">' + icone.info + "<div><strong>As aulas abrem em " + dataCurta(cfg.abre_em) + ".</strong><p>Enquanto isso, conheça o conteúdo do curso abaixo.</p></div></div>";
+    }
 
     app.innerHTML =
       '<section class="curso-topo">' + chamaHero() +
@@ -234,12 +316,12 @@
           "</div>" +
           (ok && prox
             ? '<div class="curso-acoes"><a class="botao botao-claro" href="#/curso/' + esc(curso.id) + "/aula/" + esc(prox.id) + '">' + icone.play + textoBotao + "</a>" + barraProgresso(p) + "</div>"
-            : '<span class="selo">Em breve</span>') +
+            : '<span class="selo">' + (s === "agendado" && temAulas(curso) ? "Abre em " + dataCurta(cfg.abre_em) : "Em breve") + "</span>") +
         "</div>" +
       "</section>" +
       '<div class="container curso-corpo">' +
         "<div>" +
-          (!ok ? '<div class="aviso-em-breve">' + icone.info + "<div><strong>Este curso está sendo preparado.</strong><p>As aulas serão liberadas em breve. Acompanhe as novidades no Instagram da igreja.</p></div></div>" : "") +
+          aviso +
           (curso.descricao ? '<h2>Sobre o curso</h2><div class="bloco-texto">' + formatarTexto(curso.descricao) + "</div>" : "") +
           ((curso.modulos || []).length ? '<h2 style="margin-top:36px">Conteúdo do curso</h2>' + listaModulos(curso, null, false) : "") +
         "</div>" +
@@ -252,6 +334,13 @@
             : "") +
         "</aside>" +
       "</div>";
+    window.scrollTo(0, 0);
+  }
+
+  function cursoIndisponivel() {
+    app.innerHTML = '<div class="vazio"><img src="assets/logo.png" alt=""><h1>Curso indisponível</h1>' +
+      "<p>Este curso não está disponível no momento. Veja os outros cursos do CFM.</p>" +
+      '<a class="botao botao-principal" href="#/cursos">Ver cursos</a></div>';
     window.scrollTo(0, 0);
   }
 
@@ -631,7 +720,7 @@
     var primeiro = (p.nome_completo || "").split(" ")[0];
     var comGoogle = (u.app_metadata && u.app_metadata.provider) === "google";
 
-    var emAndamento = CURSOS.filter(function (c) { return disponivel(c) && percentual(c) > 0; });
+    var emAndamento = CURSOS.filter(function (c) { return temAulas(c) && visivelNoSite(c) && percentual(c) > 0; });
     var meusCursos = emAndamento.length
       ? emAndamento.map(function (c) {
           var pc = percentual(c);
@@ -830,12 +919,17 @@
     esc: esc, plural: plural, todasAulas: todasAulas, disponivel: disponivel, barraProgresso: barraProgresso,
     chamaHero: chamaHero, aviso: aviso, traduzirErro: traduzirErro, irPara: irPara,
     exigirLogin: exigirLogin, naoEncontrado: naoEncontrado, carregando: carregando,
-    definirAtualizacao: function (fn) { atualizarPagina = fn; }
+    definirAtualizacao: function (fn) { atualizarPagina = fn; },
+    temAulas: temAulas, situacao: situacao, dataCurta: dataCurta,
+    configDoCurso: function (id) { return configCursos[id] || null; },
+    recarregarConfigCursos: carregarConfigCursos
   };
 
   // Espera todos os arquivos (inclusive o painel) carregarem antes de abrir a página
   document.addEventListener("DOMContentLoaded", function () {
     rota();
     Conta.iniciar();
+    // Busca quais cursos estão visíveis; se algo mudou desde a última visita, redesenha
+    carregarConfigCursos().then(function (mudou) { if (mudou) rota(); });
   });
 })();
