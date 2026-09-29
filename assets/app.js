@@ -314,7 +314,7 @@
       "</div></section>" +
 
       '<section class="secao" id="sobre"><div class="container sobre">' +
-        '<div class="sobre-visual"><img src="assets/logo.png" alt="Logo da Comunidade de Cristo Maranatha"></div>' +
+        '<div class="sobre-visual"><img src="assets/logo-circular.png" alt="Logo da Comunidade de Cristo Maranatha"></div>' +
         '<div class="sobre-texto">' +
           '<span class="sobretitulo">Sobre o CFM</span>' +
           "<h2>Formando discípulos que servem</h2>" +
@@ -492,7 +492,7 @@
   }
 
   function cursoIndisponivel() {
-    app.innerHTML = '<div class="vazio"><img src="assets/logo.png" alt=""><h1>Curso indisponível</h1>' +
+    app.innerHTML = '<div class="vazio"><img src="assets/simbolo.png" alt=""><h1>Curso indisponível</h1>' +
       "<p>Este curso não está disponível no momento. Veja os outros cursos do CFM.</p>" +
       '<a class="botao botao-principal" href="#/cursos">Ver cursos</a></div>';
     window.scrollTo(0, 0);
@@ -574,13 +574,13 @@
   }
 
   function naoEncontrado() {
-    app.innerHTML = '<div class="vazio"><img src="assets/logo.png" alt=""><h1>Página não encontrada</h1>' +
+    app.innerHTML = '<div class="vazio"><img src="assets/simbolo.png" alt=""><h1>Página não encontrada</h1>' +
       '<p>O endereço pode estar errado ou o conteúdo mudou de lugar.</p><a class="botao botao-principal" href="#/">Voltar ao início</a></div>';
     window.scrollTo(0, 0);
   }
 
   function carregando() {
-    app.innerHTML = '<div class="vazio"><img src="assets/logo.png" alt=""><p>Carregando…</p></div>';
+    app.innerHTML = '<div class="vazio"><img src="assets/simbolo.png" alt=""><p>Carregando…</p></div>';
   }
 
   /* ============================================================
@@ -684,7 +684,7 @@
 
   /* ---------- Entrar / Criar conta / Recuperar senha ---------- */
   function cabecalhoConta(titulo, subtitulo) {
-    return '<img class="cartao-conta-logo" src="assets/logo.png" alt="">' +
+    return '<img class="cartao-conta-logo" src="assets/simbolo.png" alt="">' +
       "<h1>" + titulo + "</h1><p class=\"cartao-conta-sub\">" + subtitulo + "</p>";
   }
   function botaoGoogle() {

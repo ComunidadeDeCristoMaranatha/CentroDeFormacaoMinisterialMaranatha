@@ -138,7 +138,7 @@
   }
 
   function semAcesso() {
-    C.app.innerHTML = '<div class="vazio"><img src="assets/logo.png" alt=""><h1>Área da equipe</h1>' +
+    C.app.innerHTML = '<div class="vazio"><img src="assets/simbolo.png" alt=""><h1>Área da equipe</h1>' +
       "<p>Esta página é só para a equipe do CFM. Se você faz parte da equipe, peça a um administrador para liberar seu acesso.</p>" +
       '<a class="botao botao-principal" href="#/">Voltar ao início</a></div>';
   }

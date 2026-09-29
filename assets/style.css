@@ -64,7 +64,7 @@ p { margin: 0 0 1em; }
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
 }
 .marca { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--texto); min-width: 0; }
-.marca img { width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; }
+.marca img { width: 40px; height: 40px; flex-shrink: 0; object-fit: contain; }
 .marca-texto { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
 .marca-texto strong { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .marca-texto small { font-size: 12px; color: var(--texto-suave); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -343,7 +343,7 @@ a.aula-item:hover { background: var(--superficie-2); }
 
 /* ---------- Estados vazios / 404 ---------- */
 .vazio { text-align: center; padding: 80px 20px; }
-.vazio img { width: 96px; margin: 0 auto 20px; border-radius: 50%; }
+.vazio img { width: 88px; margin: 0 auto 20px; }
 .vazio p { color: var(--texto-suave); }
 
 /* ---------- Rodapé ---------- */
@@ -396,7 +396,7 @@ a.aula-item:hover { background: var(--superficie-2); }
   border-radius: 20px; padding: 32px 28px; box-shadow: var(--sombra);
 }
 .cartao-conta-largo { max-width: 560px; }
-.cartao-conta-logo { width: 64px; height: 64px; border-radius: 50%; margin: 0 auto 16px; }
+.cartao-conta-logo { width: 64px; height: 64px; margin: 0 auto 16px; object-fit: contain; }
 .cartao-conta h1 { font-size: 30px; text-align: center; margin-bottom: 8px; }
 .cartao-conta-sub { text-align: center; color: var(--texto-suave); font-size: 15px; margin-bottom: 24px; }
 @media (max-width: 480px) { .cartao-conta { padding: 26px 18px; } .pagina-conta { padding-top: 24px; } }
