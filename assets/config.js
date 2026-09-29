@@ -9,7 +9,7 @@
    NUNCA coloque aqui a chave "service_role" ou "secret".
    ============================================================ */
 window.CFM_CONFIG = {
-  supabaseUrl: "",
-  supabaseChave: "",
+  supabaseUrl: "https://oowpqzvqjhznvkfitmci.supabase.co",
+  supabaseChave: "sb_publishable_ktrD5J3-r6B66hFYSQeRhg_AtA0a3Zr",
   googleAtivo: false // mude para true depois de configurar o login com Google no Supabase
 };

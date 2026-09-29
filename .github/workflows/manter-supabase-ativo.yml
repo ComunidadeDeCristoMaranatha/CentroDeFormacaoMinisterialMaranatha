@@ -1,0 +1,22 @@
+# O Supabase gratuito pausa o projeto depois de 7 dias sem uso.
+# Esta rotina do GitHub acessa o projeto a cada 3 dias para evitar a pausa.
+name: Manter Supabase ativo
+
+on:
+  schedule:
+    - cron: "0 12 */3 * *"
+  workflow_dispatch:
+
+jobs:
+  acessar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Acessar o Supabase
+        env:
+          URL: https://oowpqzvqjhznvkfitmci.supabase.co
+          CHAVE: sb_publishable_ktrD5J3-r6B66hFYSQeRhg_AtA0a3Zr # chave pública (a mesma do site)
+        run: |
+          curl -fsS "$URL/auth/v1/settings" -H "apikey: $CHAVE" > /dev/null
+          # Consulta ao banco: responde "sem permissão" para visitantes, mas conta como uso
+          curl -sS "$URL/rest/v1/perfis?select=id&limit=1" -H "apikey: $CHAVE" > /dev/null
+          echo "Supabase acessado com sucesso."
