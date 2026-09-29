@@ -60,7 +60,23 @@
     if (c.abre_em && agora < Date.parse(c.abre_em)) return "agendado";
     return "aberto";
   }
-  function ehAdmin() { return Conta.ativo && Conta.ehAdmin(); }
+  /* ---------- Perfil ativo: "aluno" ou "equipe" (só para quem é da equipe) ----------
+     No perfil de aluno, o site fica igual ao de qualquer aluno: sem painel,
+     sem cursos ocultos e sem avisos de administração. */
+  var CHAVE_MODO = "cfm-perfil-ativo";
+  var modo = "aluno";
+  try { if (localStorage.getItem(CHAVE_MODO) === "equipe") modo = "equipe"; } catch (e) { /* ok */ }
+  function definirModo(novo) {
+    modo = novo;
+    try { localStorage.setItem(CHAVE_MODO, novo); } catch (e) { /* ok */ }
+  }
+  function ehEquipe() { return Conta.ativo && !!Conta.estado.usuario && Conta.temPainel(); }
+  function modoEquipe() { return ehEquipe() && modo === "equipe"; }
+  function nomeAreaEquipe() {
+    return Conta.ehAdmin() ? "Administração" : Conta.ehConselho() ? "Conselho" : "Equipe";
+  }
+  // Poderes de admin no site (ver cursos ocultos, abrir tudo) só valem no perfil da equipe
+  function ehAdmin() { return modoEquipe() && Conta.ehAdmin(); }
   function temAulas(curso) {
     return curso.status !== "em-breve" && todasAulas(curso).length > 0;
   }
@@ -184,6 +200,8 @@
     ritmo: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
     arquivo: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>',
     info: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>',
+    capelo: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 9 12 4 2 9l10 5 10-5z"/><path d="M6 11v5c0 1.5 2.7 3 6 3s6-1.5 6-3v-5"/><path d="M22 9v6"/></svg>',
+    escudo: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>',
     cadeado: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
     esquerda: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>',
     direita: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>'
@@ -635,12 +653,13 @@
     var nome = (Conta.estado.perfil && Conta.estado.perfil.nome_completo) || u.email || "";
     var primeiro = nome.split(/[\s@]/)[0];
     el.innerHTML =
-      (Conta.temPainel()
-        ? '<a class="link-painel' + (/^#\/painel/.test(location.hash) ? " ativo" : "") + '" href="#/painel" title="Painel">' +
-            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>' +
-            "<span>Painel</span></a>"
+      (ehEquipe()
+        ? '<nav class="troca-perfil" aria-label="Perfil ativo">' +
+            '<a href="#/minha-conta" class="' + (modo === "aluno" ? "ativo" : "") + '" title="Perfil de aluno">' + icone.capelo + "<span>Aluno</span></a>" +
+            '<a href="#/painel" class="' + (modo === "equipe" ? "ativo" : "") + '" title="Perfil ' + esc(nomeAreaEquipe()) + '">' + icone.escudo + "<span>" + esc(nomeAreaEquipe()) + "</span></a>" +
+          "</nav>"
         : "") +
-      '<a class="avatar-topo" href="#/minha-conta" title="Minha conta">' +
+      '<a class="avatar-topo' + (modoEquipe() ? " avatar-equipe" : "") + '" href="' + (modoEquipe() ? "#/minha-conta/equipe" : "#/minha-conta") + '" title="Minha conta">' +
       '<span class="avatar">' + esc(primeiro.charAt(0).toUpperCase()) + "</span>" +
       '<span class="avatar-nome">' + esc(primeiro) + "</span></a>";
   }
@@ -834,12 +853,41 @@
   }
 
   /* ---------- Minha conta ---------- */
-  function paginaMinhaConta() {
+  function abasPerfil(aba) {
+    if (!ehEquipe()) return "";
+    return '<nav class="abas-perfil container" aria-label="Seus perfis">' +
+      '<a href="#/minha-conta" class="' + (aba === "aluno" ? "ativa" : "") + '">' + icone.capelo +
+        "<span><strong>Perfil de aluno</strong><small>Seus cursos e seus dados</small></span></a>" +
+      '<a href="#/minha-conta/equipe" class="' + (aba === "equipe" ? "ativa" : "") + '">' + icone.escudo +
+        "<span><strong>Perfil " + esc(nomeAreaEquipe()) + "</strong><small>Painel e ferramentas da equipe</small></span></a>" +
+    "</nav>";
+  }
+
+  function cartaoConta(u) {
+    var comGoogle = (u.app_metadata && u.app_metadata.provider) === "google";
+    return '<div class="cartao">' +
+      "<h3>Sua conta</h3>" +
+      '<p class="bloco-texto" style="font-size:15px">' + esc(u.email) + "<br><small>" +
+        (comGoogle ? "Você entra com sua conta Google." : "Você entra com e-mail e senha.") + "</small></p>" +
+      '<button class="botao botao-secundario botao-largo" type="button" id="botao-sair">Sair da conta</button>' +
+    "</div>";
+  }
+  function ligarSair() {
+    document.getElementById("botao-sair").addEventListener("click", function () {
+      Conta.sair().catch(function (e) { aviso(traduzirErro(e), "erro"); });
+    });
+  }
+
+  function paginaMinhaConta(aba) {
     if (!exigirLogin()) return;
+    if (aba === "equipe") {
+      if (!Conta.estado.perfil) return carregando();
+      if (!ehEquipe()) return irPara("#/minha-conta");
+      return paginaPerfilEquipe();
+    }
     var u = Conta.estado.usuario;
     var p = Conta.estado.perfil || {};
     var primeiro = (p.nome_completo || "").split(" ")[0];
-    var comGoogle = (u.app_metadata && u.app_metadata.provider) === "google";
 
     var emAndamento = CURSOS.filter(function (c) { return temAulas(c) && visivelNoSite(c) && percentual(c) > 0; });
     var meusCursos = emAndamento.length
@@ -860,6 +908,7 @@
           '<p class="lead">Aqui ficam seus cursos e seus dados.</p>' +
         "</div>" +
       "</section>" +
+      abasPerfil("aluno") +
       '<div class="container curso-corpo">' +
         "<div>" +
           "<h2>Meus cursos</h2>" + '<div class="meus-cursos">' + meusCursos + "</div>" +
@@ -867,17 +916,7 @@
           '<div class="cartao">' + formPerfil(p, "Salvar alterações") + "</div>" +
         "</div>" +
         "<aside>" +
-          '<div class="cartao">' +
-            "<h3>Sua conta</h3>" +
-            '<p class="bloco-texto" style="font-size:15px">' + esc(u.email) + "<br><small>" +
-              (comGoogle ? "Você entra com sua conta Google." : "Você entra com e-mail e senha.") + "</small></p>" +
-            '<button class="botao botao-secundario botao-largo" type="button" id="botao-sair">Sair da conta</button>' +
-          "</div>" +
-          (Conta.temPainel()
-            ? '<div class="cartao" style="margin-top:16px"><h3>Equipe do CFM</h3>' +
-                '<p class="bloco-texto" style="font-size:15px">' + esc(descreverAcesso()) + "</p>" +
-                '<a class="botao botao-principal botao-largo" href="#/painel">Abrir o painel</a></div>'
-            : "") +
+          cartaoConta(u) +
           '<div class="cartao" style="margin-top:16px">' +
             "<h3>Seus dados e privacidade</h3>" +
             '<p class="bloco-texto" style="font-size:14px">Veja como usamos seus dados na <a href="#/privacidade">Política de Privacidade</a>.</p>' +
@@ -887,9 +926,7 @@
       "</div>";
 
     ligarFormPerfil(function () { aviso("Dados salvos.", "sucesso"); });
-    document.getElementById("botao-sair").addEventListener("click", function () {
-      Conta.sair().catch(function (e) { aviso(traduzirErro(e), "erro"); });
-    });
+    ligarSair();
     document.getElementById("botao-excluir").addEventListener("click", function () {
       var ok = window.confirm("Tem certeza? Sua conta, seus dados e seu progresso serão apagados para sempre. Isso não pode ser desfeito.");
       if (!ok) return;
@@ -900,15 +937,59 @@
     window.scrollTo(0, 0);
   }
 
-  function descreverAcesso() {
+  function listaAcessos() {
     var partes = [];
-    if (Conta.ehAdmin()) partes.push("Administrador(a)");
-    else if (Conta.ehConselho()) partes.push("Conselho geral");
+    if (Conta.ehAdmin()) partes.push("Administrador(a) da plataforma");
+    else if (Conta.ehConselho()) partes.push("Membro do conselho geral");
     (Conta.estado.equipe || []).forEach(function (e) {
-      var c = CURSOS.filter(function (x) { return x.id === e.curso_id; })[0];
+      var c = cursoPorId(e.curso_id);
       partes.push((e.funcao === "professor" ? "Professor(a)" : "Tutor(a)") + " em " + (c ? c.titulo : e.curso_id));
     });
-    return "Seu acesso: " + partes.join(" · ") + ".";
+    return partes;
+  }
+
+  /* ---------- Perfil da equipe (conselho / administração / professores e tutores) ---------- */
+  function paginaPerfilEquipe() {
+    var u = Conta.estado.usuario;
+    var p = Conta.estado.perfil || {};
+    var primeiro = (p.nome_completo || "").split(" ")[0];
+    var atalhos = [
+      { href: "#/painel", icone: icone.pessoa, titulo: Conta.ehConselho() ? "Pessoas" : "Meus alunos",
+        texto: Conta.ehConselho() ? "Todos os cadastrados, com contato, progresso e planilha." : "Alunos dos cursos em que você atua e o progresso de cada um." }
+    ];
+    if (Conta.ehConselho()) atalhos.push({ href: "#/painel/equipe", icone: icone.escudo, titulo: "Equipe", texto: "Quem é da administração, do conselho e os professores e tutores de cada curso." });
+    if (Conta.ehAdmin()) atalhos.push({ href: "#/painel/cursos", icone: icone.livro, titulo: "Cursos", texto: "Mostrar ou esconder cursos, datas de abertura e pré-requisitos." });
+
+    app.innerHTML =
+      '<section class="curso-topo topo-equipe">' + chamaHero() +
+        '<div class="curso-topo-inner">' +
+          '<nav class="trilha" aria-label="Você está em"><a href="#/">Início</a> › <span>Perfil ' + esc(nomeAreaEquipe()) + "</span></nav>" +
+          "<h1>Olá" + (primeiro ? ", " + esc(primeiro) : "") + "!</h1>" +
+          '<p class="lead">Esta é a sua área de ' + esc(nomeAreaEquipe().toLowerCase()) + ". Para estudar, use o perfil de aluno.</p>" +
+        "</div>" +
+      "</section>" +
+      abasPerfil("equipe") +
+      '<div class="container curso-corpo">' +
+        "<div>" +
+          "<h2>Ferramentas</h2>" +
+          '<div class="atalhos-equipe">' + atalhos.map(function (a) {
+            return '<a class="atalho" href="' + a.href + '"><span class="atalho-icone">' + a.icone + "</span>" +
+              "<span><strong>" + esc(a.titulo) + "</strong><small>" + esc(a.texto) + "</small></span>" + icone.direita + "</a>";
+          }).join("") + "</div>" +
+          '<div class="aviso-em-breve" style="margin-top:28px">' + icone.info +
+            "<div><strong>Dois perfis, uma conta</strong><p>No <strong>perfil de aluno</strong>, o site aparece exatamente como os alunos veem: sem painel, sem cursos ocultos e sem avisos da administração. " +
+            "Use-o para fazer os cursos e também para conferir como está a experiência dos alunos. Você troca de perfil a qualquer momento pelo botão no topo da página.</p></div>" +
+          "</div>" +
+        "</div>" +
+        "<aside>" +
+          '<div class="cartao cartao-acessos"><h3>Seu acesso</h3><ul class="lista-simples">' +
+            listaAcessos().map(function (t) { return "<li>" + icone.escudo + "<span>" + esc(t) + "</span></li>"; }).join("") +
+          "</ul></div>" +
+          '<div style="margin-top:16px">' + cartaoConta(u) + "</div>" +
+        "</aside>" +
+      "</div>";
+    ligarSair();
+    window.scrollTo(0, 0);
   }
 
   /* ---------- Nova senha (depois do link "esqueci minha senha") ---------- */
@@ -964,6 +1045,10 @@
     var menu = "";
     atualizarPagina = null;
 
+    // Trocar de perfil (aluno / equipe) acontece pelo endereço aberto
+    if (partes[0] === "painel" || (partes[0] === "minha-conta" && partes[1] === "equipe")) definirModo("equipe");
+    else if (partes[0] === "minha-conta") definirModo("aluno");
+
     // Quem entrou mas ainda não completou o cadastro vai primeiro para o cadastro
     var livres = ["cadastro", "privacidade", "nova-senha"];
     if (Conta.ativo && Conta.estado.pronto && Conta.estado.usuario && Conta.estado.perfil &&
@@ -986,7 +1071,7 @@
     else if (partes[0] === "criar-conta") paginaEntrar("criar");
     else if (partes[0] === "recuperar-senha") paginaEntrar("recuperar");
     else if (partes[0] === "cadastro") paginaCadastro();
-    else if (partes[0] === "minha-conta") paginaMinhaConta();
+    else if (partes[0] === "minha-conta") paginaMinhaConta(partes[1]);
     else if (partes[0] === "nova-senha") paginaNovaSenha();
     else if (partes[0] === "privacidade") paginaPrivacidade();
     else if (partes[0] === "painel" && window.Painel) { menu = "painel"; window.Painel.pagina(partes.slice(1)); }

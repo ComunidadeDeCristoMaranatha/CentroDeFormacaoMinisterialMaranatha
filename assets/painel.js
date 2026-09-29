@@ -84,7 +84,7 @@
     var aba = partes[0] || "pessoas";
     var app = C.app;
     app.innerHTML =
-      '<section class="curso-topo painel-topo">' + C.chamaHero() +
+      '<section class="curso-topo painel-topo topo-equipe">' + C.chamaHero() +
         '<div class="curso-topo-inner">' +
           '<nav class="trilha" aria-label="Você está em"><a href="#/">Início</a> › <span>Painel</span></nav>' +
           "<h1>Painel</h1>" +

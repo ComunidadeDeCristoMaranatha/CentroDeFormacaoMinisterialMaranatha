@@ -458,12 +458,54 @@ a.aula-item:hover { background: var(--superficie-2); }
    PAINEL DA EQUIPE
    ============================================================ */
 .conta-topo { display: flex; align-items: center; gap: 8px; }
-.link-painel {
-  display: flex; align-items: center; gap: 6px; color: var(--texto-suave); text-decoration: none;
-  font-size: 14px; font-weight: 500; padding: 8px 12px; border-radius: 999px; border: 1px solid var(--borda);
+/* Troca de perfil (aluno / equipe) no topo */
+.troca-perfil { display: flex; background: var(--superficie); border: 1px solid var(--borda); border-radius: 999px; padding: 3px; }
+.troca-perfil a {
+  display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px;
+  color: var(--texto-suave); text-decoration: none; font-size: 13px; font-weight: 600; white-space: nowrap;
 }
-.link-painel:hover, .link-painel.ativo { color: var(--amarelo); border-color: var(--laranja); }
-@media (max-width: 640px) { .link-painel span { display: none; } .link-painel { padding: 8px; } }
+.troca-perfil a:hover { color: var(--texto); }
+.troca-perfil a.ativo { background: var(--superficie-2); color: var(--amarelo); box-shadow: inset 0 0 0 1px rgba(247,134,28,.5); }
+.avatar-equipe .avatar { background: var(--superficie-2); color: var(--amarelo); box-shadow: inset 0 0 0 2px var(--amarelo); }
+@media (max-width: 760px) { .troca-perfil span { display: none; } .troca-perfil a { padding: 7px 9px; } }
+.marca { flex-shrink: 0; }
+@media (max-width: 480px) {
+  .topo-inner { gap: 8px; padding-left: 16px; padding-right: 16px; }
+  .menu a[data-nav="inicio"] { display: none; } /* o logo já leva para o início */
+  .menu a { padding: 6px 8px; }
+}
+
+/* Abas de perfil na "Minha conta" */
+.abas-perfil { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: -28px; position: relative; z-index: 2; }
+.abas-perfil a {
+  display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-radius: var(--raio);
+  background: var(--superficie); border: 1px solid var(--borda); color: var(--texto-suave); text-decoration: none;
+  box-shadow: var(--sombra); transition: border-color .2s;
+}
+.abas-perfil a svg { width: 26px; height: 26px; flex-shrink: 0; }
+.abas-perfil a strong { display: block; color: var(--texto); font-size: 16px; }
+.abas-perfil a small { display: block; font-size: 13px; }
+.abas-perfil a:hover { border-color: var(--laranja); }
+.abas-perfil a.ativa { border-color: var(--laranja); background: linear-gradient(var(--superficie), var(--superficie)) padding-box, var(--gradiente) border-box; border: 2px solid transparent; }
+.abas-perfil a.ativa svg { color: var(--amarelo); }
+.abas-perfil + .curso-corpo { padding-top: 32px; }
+@media (max-width: 560px) { .abas-perfil a small { display: none; } .abas-perfil a { padding: 12px; gap: 8px; } .abas-perfil a strong { font-size: 14px; } }
+
+/* Perfil da equipe */
+.topo-equipe { background: linear-gradient(135deg, #3a2a1f 0%, #5a2a14 55%, #8a3414 100%); }
+.atalhos-equipe { display: grid; gap: 12px; }
+.atalho {
+  display: flex; align-items: center; gap: 16px; padding: 18px 20px; border-radius: var(--raio);
+  background: var(--superficie); border: 1px solid var(--borda); color: var(--texto); text-decoration: none; transition: border-color .2s, transform .15s;
+}
+.atalho:hover { border-color: var(--laranja); transform: translateX(3px); }
+.atalho > span:nth-child(2) { flex: 1; }
+.atalho strong { display: block; font-size: 17px; }
+.atalho small { display: block; color: var(--texto-suave); font-size: 14px; }
+.atalho > svg { color: var(--texto-suave); flex-shrink: 0; }
+.atalho-icone { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: var(--gradiente-suave); color: var(--amarelo); flex-shrink: 0; }
+.atalho-icone svg { width: 22px; height: 22px; }
+.cartao-acessos .lista-simples svg { color: var(--amarelo); }
 
 .suave { color: var(--texto-suave); }
 .painel { padding-top: 28px; padding-bottom: 72px; }
