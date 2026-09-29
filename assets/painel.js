@@ -60,16 +60,18 @@
     var r = await Promise.all([
       cl.from("perfis").select("*").order("nome_completo", { ascending: true }),
       cl.rpc("resumo_progresso"),
-      cl.from("equipe_curso").select("usuario_id, curso_id, funcao")
+      cl.from("equipe_curso").select("usuario_id, curso_id, funcao"),
+      cl.from("prerequisito_dispensas").select("*")
     ]);
-    r.forEach(function (x) { if (x.error) throw x.error; });
+    r.slice(0, 3).forEach(function (x) { if (x.error) throw x.error; });
 
     var progresso = {};
     r[1].data.forEach(function (l) {
       progresso[l.usuario_id] = progresso[l.usuario_id] || {};
       progresso[l.usuario_id][l.curso_id] = { aulas: l.aulas_concluidas, ultima: l.ultima_atividade };
     });
-    dados = { pessoas: r[0].data, progresso: progresso, equipe: r[2].data };
+    // Liberações de pré-requisito (se o script 04 ainda não foi rodado, segue sem elas)
+    dados = { pessoas: r[0].data, progresso: progresso, equipe: r[2].data, dispensas: r[3].error ? [] : r[3].data };
     return dados;
   }
 
@@ -268,6 +270,7 @@
     var prog = d.progresso[p.id] || {};
     var whats = linkWhats(p.telefone);
     var funcoes = d.equipe.filter(function (e) { return e.usuario_id === p.id; });
+    var dispensas = d.dispensas.filter(function (x) { return x.usuario_id === p.id; });
 
     var cursosProgresso = cursosVisiveis().map(function (c) {
       var feitas = prog[c.id] ? prog[c.id].aulas : 0;
@@ -305,6 +308,24 @@
                 '<select id="nova-funcao"><option value="professor">Professor(a)</option><option value="tutor">Tutor(a)</option></select>' +
                 '<select id="novo-curso">' + C.cursos.map(function (c) { return '<option value="' + esc(c.id) + '">' + esc(c.titulo) + "</option>"; }).join("") + "</select>" +
                 '<button class="botao botao-secundario" type="button" id="adicionar-funcao">Adicionar</button>' +
+              "</div>"
+            : "") +
+
+          '<h3 style="margin-top:24px">Liberação de pré-requisito</h3>' +
+          '<p class="suave" style="font-size:13px;margin:0 0 10px">Permite que esta pessoa faça o curso mesmo sem ter concluído o pré-requisito.</p>' +
+          (dispensas.length
+            ? '<ul class="lista-funcoes">' + dispensas.map(function (x) {
+                return "<li><span>" + esc(tituloCurso(x.curso_id)) + (x.motivo ? '<small class="suave" style="display:block">' + esc(x.motivo) + "</small>" : "") + "</span>" +
+                  (admin ? '<button class="botao-remover" type="button" data-dispensa="' + esc(x.curso_id) + '">Retirar</button>' : "") + "</li>";
+              }).join("") + "</ul>"
+            : '<p class="suave">Nenhuma liberação.</p>') +
+          (admin
+            ? '<div class="adicionar-funcao">' +
+                '<select id="dispensa-curso">' + C.cursos.map(function (c) {
+                  return '<option value="' + esc(c.id) + '">' + esc(c.titulo) + (C.textoPrerequisitos(c) ? "" : " (sem pré-requisito)") + "</option>";
+                }).join("") + "</select>" +
+                '<input id="dispensa-motivo" maxlength="300" placeholder="Motivo (opcional). Ex.: fez o curso presencialmente">' +
+                '<button class="botao botao-secundario" type="button" id="adicionar-dispensa">Liberar</button>' +
               "</div>"
             : "") +
           '<div class="mensagem" id="msg-acesso" role="alert"></div>' +
@@ -369,7 +390,34 @@
       });
     });
 
-    el.querySelectorAll(".botao-remover").forEach(function (b) {
+    document.getElementById("adicionar-dispensa").addEventListener("click", function (ev) {
+      var botao = ev.currentTarget;
+      var cursoId = document.getElementById("dispensa-curso").value;
+      var motivo = document.getElementById("dispensa-motivo").value.trim();
+      if (!window.confirm("Liberar " + (p.nome_completo || p.email) + " para fazer " + tituloCurso(cursoId) + " sem o pré-requisito?")) return;
+      botao.disabled = true;
+      Conta.cliente.from("prerequisito_dispensas").insert({ usuario_id: p.id, curso_id: cursoId, motivo: motivo || null }).then(function (r) {
+        botao.disabled = false;
+        if (r.error) {
+          if (r.error.code === "23505") return mostrarErro({ message: "Essa pessoa já tem liberação para esse curso.", code: "P0001" });
+          return mostrarErro(r.error);
+        }
+        recarregar("Liberação concedida.");
+      });
+    });
+
+    el.querySelectorAll("[data-dispensa]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        if (!window.confirm("Retirar a liberação de pré-requisito para " + tituloCurso(b.dataset.dispensa) + "?")) return;
+        b.disabled = true;
+        Conta.cliente.from("prerequisito_dispensas").delete().match({ usuario_id: p.id, curso_id: b.dataset.dispensa }).then(function (r) {
+          if (r.error) { b.disabled = false; return mostrarErro(r.error); }
+          recarregar("Liberação retirada.");
+        });
+      });
+    });
+
+    el.querySelectorAll(".botao-remover[data-funcao]").forEach(function (b) {
       b.addEventListener("click", function () {
         var texto = FUNCOES[b.dataset.funcao] + " em " + tituloCurso(b.dataset.curso);
         if (!window.confirm("Remover a função " + texto + "?")) return;
@@ -402,6 +450,25 @@
     return { texto: "Visível para todos" + (cfg.fecha_em ? " até " + C.dataCurta(cfg.fecha_em) : ""), classe: "estado-aberto" };
   }
 
+  // Se "cursoId" passar a exigir "novos", algum deles acaba exigindo o próprio cursoId?
+  // Devolve o caminho do ciclo (ex.: "A → B → A") ou null.
+  function criaCiclo(cursoId, novos) {
+    function prereqsDe(id) {
+      if (id === cursoId) return novos;
+      var cfg = C.configDoCurso(id);
+      return (cfg && cfg.prerequisitos) || [];
+    }
+    var caminho = null;
+    function visitar(id, trilha) { // "trilha" termina em "id"
+      if (caminho) return;
+      if (trilha.length > 1 && id === cursoId) { caminho = trilha; return; }
+      if (trilha.slice(0, -1).indexOf(id) >= 0) return; // outro ciclo antigo: não seguir
+      prereqsDe(id).forEach(function (p) { visitar(p, trilha.concat(p)); });
+    }
+    visitar(cursoId, [cursoId]);
+    return caminho ? caminho.map(tituloCurso).join(" → ") : null;
+  }
+
   function renderCursos(el) {
     el.innerHTML =
       '<div class="aviso-em-breve">' + C.icone.info +
@@ -417,7 +484,8 @@
         return '<div class="cartao curso-config" data-curso="' + esc(curso.id) + '">' +
           '<div class="curso-config-topo">' +
             "<div><h3>" + esc(curso.titulo) + "</h3><small class=\"suave\">" +
-              (C.temAulas(curso) ? C.plural(qtd, "aula", "aulas") : "Sem aulas ainda — aparece como “Em breve”") + "</small></div>" +
+              (C.temAulas(curso) ? C.plural(qtd, "aula", "aulas") : "Sem aulas ainda — aparece como “Em breve”") +
+              (C.textoPrerequisitos(curso) ? " · Pré-requisito: " + esc(C.textoPrerequisitos(curso)) : "") + "</small></div>" +
             '<span class="estado ' + estado.classe + '">' + esc(estado.texto) + "</span>" +
           "</div>" +
           '<div class="formulario">' +
@@ -426,6 +494,16 @@
               '<label class="campo"><span class="campo-rotulo">Abrir as aulas a partir de</span><input type="date" data-campo="abre" value="' + paraCampoData(cfg.abre_em) + '"></label>' +
               '<label class="campo"><span class="campo-rotulo">Esconder do site depois de</span><input type="date" data-campo="fecha" value="' + paraCampoData(cfg.fecha_em) + '"></label>' +
             "</div>" +
+            '<fieldset class="campo"><legend class="campo-rotulo">Pré-requisitos</legend>' +
+              '<div class="prereq-opcoes">' + C.cursos.filter(function (o) { return o.id !== curso.id; }).map(function (o) {
+                var marcado = (cfg.prerequisitos || []).indexOf(o.id) >= 0;
+                return '<label class="opcao"><input type="checkbox" data-prereq="' + esc(o.id) + '"' + (marcado ? " checked" : "") + "><span>" + esc(o.titulo) + "</span></label>";
+              }).join("") + "</div>" +
+              '<div class="prereq-modo">' +
+                '<label class="opcao"><input type="radio" name="modo-' + esc(curso.id) + '" value="qualquer"' + (cfg.prerequisito_modo !== "todos" ? " checked" : "") + "><span>Basta concluir <strong>um</strong> dos marcados</span></label>" +
+                '<label class="opcao"><input type="radio" name="modo-' + esc(curso.id) + '" value="todos"' + (cfg.prerequisito_modo === "todos" ? " checked" : "") + "><span>Precisa concluir <strong>todos</strong> os marcados</span></label>" +
+              "</div>" +
+            "</fieldset>" +
             '<div class="curso-config-acoes"><button class="botao botao-principal botao-pequeno" type="button" data-salvar>Salvar</button>' +
               '<a class="botao botao-secundario botao-pequeno" href="#/curso/' + esc(curso.id) + '">Ver página do curso</a></div>' +
             '<div class="mensagem" role="alert"></div>' +
@@ -446,12 +524,22 @@
           msg.textContent = "A data para esconder precisa ser depois da data de abertura.";
           return;
         }
+        var cursoId = cartao.dataset.curso;
+        var prereqs = Array.prototype.map.call(cartao.querySelectorAll("[data-prereq]:checked"), function (i) { return i.dataset.prereq; });
+        var ciclo = criaCiclo(cursoId, prereqs);
+        if (ciclo) {
+          msg.className = "mensagem erro";
+          msg.textContent = "Isso criaria um ciclo: " + ciclo + ". Assim ninguém conseguiria fazer esses cursos.";
+          return;
+        }
         botao.disabled = true;
         Conta.cliente.from("cursos_config").upsert({
-          curso_id: cartao.dataset.curso,
+          curso_id: cursoId,
           visivel: cartao.querySelector('[data-campo="visivel"]').checked,
           abre_em: doCampoData(abre, false),
-          fecha_em: doCampoData(fecha, true)
+          fecha_em: doCampoData(fecha, true),
+          prerequisitos: prereqs,
+          prerequisito_modo: cartao.querySelector('input[type="radio"]:checked').value
         }, { onConflict: "curso_id" }).then(function (r) {
           botao.disabled = false;
           if (r.error) { msg.className = "mensagem erro"; msg.textContent = erroMsg(r.error); return; }

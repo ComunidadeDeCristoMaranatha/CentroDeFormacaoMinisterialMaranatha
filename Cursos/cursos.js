@@ -5,9 +5,12 @@
    Este é o arquivo onde ficam os cursos, módulos e aulas.
    Tudo o que está aqui aparece no site.
 
-   MOSTRAR / ESCONDER UM CURSO E DATAS DE ABERTURA:
+   MOSTRAR / ESCONDER UM CURSO, DATAS DE ABERTURA E PRÉ-REQUISITOS:
    isso NÃO é feito aqui. Os administradores controlam pelo site,
    em Painel → aba "Cursos".
+
+   ACESSO ÀS AULAS: a PRIMEIRA aula de cada curso é aberta a todos.
+   As demais exigem conta no site (e o pré-requisito, se houver).
 
    COMO FUNCIONA (em palavras simples):
    - Um CURSO tem vários MÓDULOS (as "partes" do curso).
@@ -569,6 +572,17 @@ Que o Espírito Santo te ilumine nessa jornada!`,
      CURSOS AINDA EM PREPARAÇÃO
      (textos provisórios — ajuste o resumo quando tiver o material)
      ================================================================ */
+  {
+    id: "curso-de-batismo",
+    titulo: "Curso de Batismo",
+    resumo: "Preparação para quem deseja descer às águas e dar esse passo de fé.",
+    descricao: `Curso em preparação. Em breve, mais informações.`,
+    professor: "",
+    cargaHoraria: "",
+    status: "em-breve",
+    capa: "",
+    modulos: []
+  },
   {
     id: "cosmovisao-biblica",
     titulo: "Cosmovisão Bíblica",

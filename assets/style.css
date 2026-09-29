@@ -562,6 +562,29 @@ a.linha-pessoa:hover { background: var(--superficie-2); }
 .formulario input[type="date"] { color-scheme: dark; }
 .curso-config-acoes { display: flex; flex-wrap: wrap; gap: 10px; }
 
+/* ============================================================
+   ACESSO ÀS AULAS E PRÉ-REQUISITOS
+   ============================================================ */
+.card-prereq { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--amarelo); }
+.marcador.trancado { border-color: var(--borda); background: var(--superficie-2); color: var(--texto-suave); }
+.aula-item.trancada .titulo-aula { color: var(--texto-suave); }
+.aula-livre { font-size: 11px; font-weight: 600; color: var(--sucesso); border: 1px solid rgba(127,211,138,.4); padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+.video-trancado { background: linear-gradient(135deg, #2a211c, #1a1614); }
+.video-trancado strong { color: var(--texto); }
+.cadeado-grande { position: relative; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: var(--gradiente); color: #1a0f08; }
+.cadeado-grande svg { width: 28px; height: 28px; }
+.aula-trancada { margin-top: 24px; padding: 28px; }
+.aula-trancada h2 { font-size: 26px; }
+.aula-trancada p { color: var(--texto-suave); }
+.lista-prereq { list-style: none; padding: 0; margin: 0 0 12px; display: grid; gap: 8px; }
+.lista-prereq li { display: flex; align-items: center; gap: 10px; font-size: 15px; }
+.lista-prereq a { color: var(--texto); }
+.lista-prereq small.ok { color: var(--sucesso); font-size: 12px; }
+.cartao-prereq { margin-bottom: 16px; border-color: rgba(251,176,59,.4); }
+.prereq-opcoes { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 2px 16px; }
+.prereq-modo { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-top: 6px; padding-top: 8px; border-top: 1px dashed var(--borda); }
+.adicionar-funcao input { width: 100%; font: inherit; font-size: 15px; color: var(--texto); background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio-p); padding: 10px 12px; }
+
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; scroll-behavior: auto !important; }
 }

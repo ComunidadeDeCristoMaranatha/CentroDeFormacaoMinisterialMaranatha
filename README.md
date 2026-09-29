@@ -45,7 +45,13 @@ Troque `status: "em-breve"` por `status: "disponivel"` e adicione pelo menos uma
 Isso é feito pelo próprio site, só por administradores: **Painel → aba Cursos**. Para cada curso dá para:
 - mostrar ou esconder do site;
 - escolher a data em que as aulas abrem (antes disso, o curso aparece como "Abre em …");
-- escolher a data em que o curso some do site sozinho.
+- escolher a data em que o curso some do site sozinho;
+- definir os pré-requisitos (outros cursos que precisam ser concluídos antes).
+
+### Quem pode ver as aulas
+- A **primeira aula** de cada curso é aberta a todos, sem cadastro.
+- As **demais** exigem conta no site e, se o curso tiver pré-requisito, que ele tenha sido concluído (todas as aulas marcadas).
+- Um administrador pode **liberar um aluno** de um pré-requisito na página da pessoa, no Painel.
 
 ### Escrever o texto da aula
 - Uma **linha em branco** separa os parágrafos

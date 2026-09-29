@@ -39,7 +39,7 @@
 
   function carregarConfigCursos() {
     if (!Conta.cliente) return Promise.resolve(false);
-    return Conta.cliente.from("cursos_config").select("curso_id, visivel, abre_em, fecha_em").then(function (r) {
+    return Conta.cliente.from("cursos_config").select("*").then(function (r) {
       if (r.error) { console.error(r.error); return false; }
       var novo = {};
       r.data.forEach(function (l) { novo[l.curso_id] = l; });
@@ -75,6 +75,50 @@
   }
   function dataCurta(d) {
     return new Date(d).toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza" });
+  }
+
+  /* ---------- Pré-requisitos e acesso às aulas ----------
+     Regra do colegiado: a 1ª aula de cada curso é aberta a todos;
+     as demais exigem conta e, se houver, o pré-requisito concluído. */
+  function cursoPorId(id) { return CURSOS.filter(function (c) { return c.id === id; })[0]; }
+
+  function prerequisitosDe(curso) {
+    var cfg = configCursos[curso.id] || {};
+    var ids = (cfg.prerequisitos || []).filter(function (id) { return id !== curso.id && cursoPorId(id); });
+    return { cursos: ids.map(cursoPorId), modo: cfg.prerequisito_modo === "todos" ? "todos" : "qualquer" };
+  }
+  // Por enquanto "concluir" = marcar todas as aulas. Com a prova, passará a ser "ser aprovado".
+  function concluiuCurso(curso) { return temAulas(curso) && percentual(curso) === 100; }
+
+  // Equipe e quem recebeu liberação do admin não precisam do pré-requisito
+  function semPrerequisito(curso) {
+    if (!Conta.ativo || !Conta.estado.usuario) return false;
+    if (Conta.ehConselho()) return true;
+    if ((Conta.estado.equipe || []).some(function (e) { return e.curso_id === curso.id; })) return true;
+    return (Conta.estado.dispensas || []).indexOf(curso.id) >= 0;
+  }
+  function prerequisitosPendentes(curso) {
+    var p = prerequisitosDe(curso);
+    if (!p.cursos.length || semPrerequisito(curso)) return [];
+    if (p.modo === "qualquer") return p.cursos.some(concluiuCurso) ? [] : p.cursos;
+    return p.cursos.filter(function (c) { return !concluiuCurso(c); });
+  }
+  function textoPrerequisitos(curso) {
+    var p = prerequisitosDe(curso);
+    var nomes = p.cursos.map(function (c) { return c.titulo; });
+    if (nomes.length < 2) return nomes[0] || "";
+    return nomes.slice(0, -1).join(", ") + (p.modo === "todos" ? " e " : " ou ") + nomes[nomes.length - 1];
+  }
+
+  // Pode abrir a aula de posição "indice" (0 = primeira)?
+  function acessoAula(curso, indice) {
+    if (!disponivel(curso)) return { ok: false, motivo: "indisponivel" };
+    if (indice === 0 || !Conta.ativo || ehAdmin()) return { ok: true };
+    if (!Conta.estado.pronto) return { ok: false, motivo: "carregando" };
+    if (!Conta.estado.usuario) return { ok: false, motivo: "login" };
+    var faltam = prerequisitosPendentes(curso);
+    if (faltam.length) return { ok: false, motivo: "prerequisito", faltam: faltam };
+    return { ok: true };
   }
   function proximaAula(curso) {
     var aulas = todasAulas(curso);
@@ -140,6 +184,7 @@
     ritmo: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
     arquivo: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>',
     info: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>',
+    cadeado: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
     esquerda: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>',
     direita: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>'
   };
@@ -177,6 +222,7 @@
       '<div class="card-corpo">' +
         "<h3>" + esc(curso.titulo) + "</h3>" +
         "<p>" + esc(curso.resumo || "") + "</p>" +
+        (textoPrerequisitos(curso) ? '<span class="card-prereq">' + icone.cadeado + "Pré-requisito: " + esc(textoPrerequisitos(curso)) + "</span>" : "") +
         '<div class="card-meta">' +
           (qtd ? "<span>" + icone.play + plural(qtd, "aula", "aulas") + "</span>" : "") +
           (curso.cargaHoraria ? "<span>" + icone.relogio + esc(curso.cargaHoraria) + "</span>" : "") +
@@ -225,8 +271,8 @@
       '<section class="secao secao-alt"><div class="container">' +
         '<div class="secao-cabecalho"><span class="sobretitulo">Como funciona</span><h2>Simples assim</h2></div>' +
         '<div class="passos">' +
-          '<div class="passo"><div class="passo-numero">1</div><h3>Escolha um curso</h3><p>Veja os cursos disponíveis e clique no que deseja fazer. Não precisa criar conta nem pagar nada.</p></div>' +
-          '<div class="passo"><div class="passo-numero">2</div><h3>Assista às aulas</h3><p>Cada aula tem um vídeo e um texto de apoio. Estude quando e onde puder.</p></div>' +
+          '<div class="passo"><div class="passo-numero">1</div><h3>Escolha um curso</h3><p>Veja os cursos e assista à primeira aula de qualquer um deles, sem cadastro. Tudo é gratuito.</p></div>' +
+          '<div class="passo"><div class="passo-numero">2</div><h3>Crie sua conta</h3><p>Com uma conta gratuita, todas as aulas são liberadas. Cada aula tem vídeo e texto de apoio.</p></div>' +
           '<div class="passo"><div class="passo-numero">3</div><h3>Acompanhe seu avanço</h3><p>Marque as aulas concluídas e continue de onde parou na próxima visita.</p></div>' +
         "</div>" +
       "</div></section>" +
@@ -257,6 +303,7 @@
   /* ---------- Lista de módulos ---------- */
   function listaModulos(curso, aulaAtualId, lateral) {
     var ok = disponivel(curso);
+    var indice = 0; // posição da aula no curso inteiro (a 1ª é aberta a todos)
     return '<div class="modulos">' + (curso.modulos || []).map(function (m, mi) {
       var aulas = m.aulas || [];
       var temAtual = aulas.some(function (a) { return a.id === aulaAtualId; });
@@ -268,11 +315,16 @@
         "</small></div>" + icone.seta + "</summary>" +
         '<ul class="aulas">' + aulas.map(function (a) {
           var feito = concluida(curso.id, a.id);
-          var conteudo = '<span class="marcador' + (feito ? " feito" : "") + '">' + icone.check + "</span>" +
+          var acesso = acessoAula(curso, indice++);
+          var trancada = !acesso.ok && acesso.motivo !== "carregando";
+          var conteudo = (trancada
+              ? '<span class="marcador trancado" title="' + (acesso.motivo === "login" ? "Crie sua conta para liberar" : "Conclua o pré-requisito para liberar") + '">' + icone.cadeado + "</span>"
+              : '<span class="marcador' + (feito ? " feito" : "") + '">' + icone.check + "</span>") +
             '<span class="titulo-aula">' + esc(a.titulo) + "</span>" +
+            (indice === 1 && Conta.ativo && Conta.estado.pronto && !Conta.estado.usuario ? '<span class="aula-livre">Aberta a todos</span>' : "") +
             (a.duracao ? '<span class="duracao">' + esc(a.duracao) + "</span>" : "");
           if (!ok) return '<li><div class="aula-item bloqueada">' + conteudo + "</div></li>";
-          return '<li><a class="aula-item' + (a.id === aulaAtualId ? " atual" : "") + '" href="#/curso/' +
+          return '<li><a class="aula-item' + (a.id === aulaAtualId ? " atual" : "") + (trancada ? " trancada" : "") + '" href="#/curso/' +
             esc(curso.id) + "/aula/" + esc(a.id) + '"' + (a.id === aulaAtualId ? ' aria-current="page"' : "") + ">" + conteudo + "</a></li>";
         }).join("") + "</ul></details>";
     }).join("") + "</div>";
@@ -300,6 +352,14 @@
       aviso = '<div class="aviso-em-breve">' + icone.info + "<div><strong>Este curso está sendo preparado.</strong><p>As aulas serão liberadas em breve. Acompanhe as novidades no Instagram da igreja.</p></div></div>";
     } else if (s === "agendado") {
       aviso = '<div class="aviso-em-breve">' + icone.info + "<div><strong>As aulas abrem em " + dataCurta(cfg.abre_em) + ".</strong><p>Enquanto isso, conheça o conteúdo do curso abaixo.</p></div></div>";
+    } else if (Conta.ativo && Conta.estado.pronto && !Conta.estado.usuario && aulas.length > 1) {
+      aviso = '<div class="aviso-em-breve">' + icone.info + "<div><strong>A primeira aula é aberta a todos.</strong>" +
+        '<p>Para liberar as demais, <a href="#/criar-conta">crie sua conta gratuita</a> ou <a href="#/entrar">entre</a>. Leva menos de um minuto.</p></div></div>';
+    } else if (Conta.estado.usuario && prerequisitosPendentes(curso).length && !ehAdmin()) {
+      aviso = '<div class="aviso-em-breve">' + icone.info + "<div><strong>Este curso tem pré-requisito.</strong>" +
+        "<p>Você já pode assistir à primeira aula. As demais serão liberadas quando você concluir " +
+        (prerequisitosDe(curso).cursos.length > 1 ? (prerequisitosDe(curso).modo === "todos" ? "todos estes cursos" : "um destes cursos") : "o curso") +
+        ": <strong>" + esc(textoPrerequisitos(curso)) + "</strong>.</p></div></div>";
     }
 
     app.innerHTML =
@@ -326,6 +386,7 @@
           ((curso.modulos || []).length ? '<h2 style="margin-top:36px">Conteúdo do curso</h2>' + listaModulos(curso, null, false) : "") +
         "</div>" +
         "<aside>" +
+          cartaoPrerequisitos(curso) +
           (curso.paraQuem || curso.voceVaiAprender
             ? '<div class="cartao">' +
                 (curso.voceVaiAprender ? "<h3>O que você vai aprender</h3>" + listaItens(curso.voceVaiAprender) : "") +
@@ -333,6 +394,63 @@
               "</div>"
             : "") +
         "</aside>" +
+      "</div>";
+    window.scrollTo(0, 0);
+  }
+
+  function cartaoPrerequisitos(curso) {
+    var p = prerequisitosDe(curso);
+    if (!p.cursos.length) return "";
+    var logado = Conta.estado.usuario;
+    var liberado = (Conta.estado.dispensas || []).indexOf(curso.id) >= 0;
+    return '<div class="cartao cartao-prereq"><h3>Pré-requisito</h3>' +
+      '<p class="suave" style="font-size:14px;margin:0 0 10px">' +
+        (p.cursos.length > 1 ? (p.modo === "todos" ? "Conclua todos estes cursos:" : "Conclua pelo menos um destes cursos:") : "Conclua antes o curso:") +
+      "</p>" +
+      '<ul class="lista-prereq">' + p.cursos.map(function (c) {
+        var feito = logado && concluiuCurso(c);
+        return "<li>" + '<span class="marcador' + (feito ? " feito" : "") + '">' + icone.check + "</span>" +
+          (temAulas(c) && visivelNoSite(c) ? '<a href="#/curso/' + esc(c.id) + '">' + esc(c.titulo) + "</a>" : "<span>" + esc(c.titulo) + "</span>") +
+          (feito ? '<small class="ok">concluído</small>' : "") + "</li>";
+      }).join("") + "</ul>" +
+      (logado && liberado
+        ? '<p class="dica-login" style="margin:12px 0 0">Você recebeu liberação para fazer este curso.</p>'
+        : "") +
+      '<p class="suave" style="font-size:13px;margin:12px 0 0">A primeira aula é aberta a todos. Já fez algum desses cursos presencialmente? Fale com a secretaria do CFM.</p>' +
+    "</div>";
+  }
+
+  // Tela de aula trancada: pede cadastro ou mostra o pré-requisito que falta
+  function aulaTrancada(curso, aulas, i, acesso) {
+    var aula = aulas[i].aula;
+    var corpo;
+    if (acesso.motivo === "login") {
+      corpo = "<h2>Esta aula é para alunos cadastrados</h2>" +
+        "<p>A primeira aula de cada curso é aberta a todos. Para continuar estudando, crie sua conta gratuita. Leva menos de um minuto, e seu progresso fica salvo em qualquer aparelho.</p>" +
+        '<div class="hero-acoes"><a class="botao botao-principal" href="#/criar-conta">Criar minha conta</a>' +
+        '<a class="botao botao-secundario" href="#/entrar">Já tenho conta</a></div>';
+    } else {
+      var p = prerequisitosDe(curso);
+      corpo = "<h2>Antes, conclua o pré-requisito</h2>" +
+        "<p>Para liberar as aulas de <strong>" + esc(curso.titulo) + "</strong>, conclua " +
+        (p.cursos.length > 1 ? (p.modo === "todos" ? "todos estes cursos" : "um destes cursos") : "o curso") + ":</p>" +
+        '<ul class="lista-prereq">' + acesso.faltam.map(function (c) {
+          return "<li>" + '<span class="marcador trancado">' + icone.cadeado + "</span>" +
+            (temAulas(c) && visivelNoSite(c) ? '<a href="#/curso/' + esc(c.id) + '">' + esc(c.titulo) + "</a>" : "<span>" + esc(c.titulo) + " (em breve)</span>") + "</li>";
+        }).join("") + "</ul>" +
+        '<p class="suave">Concluir um curso = marcar todas as aulas dele como concluídas. Já fez presencialmente? Fale com a secretaria do CFM para liberar seu acesso.</p>';
+    }
+    app.innerHTML =
+      '<div class="container aula-layout">' +
+        "<div>" +
+          '<nav class="trilha" aria-label="Você está em"><a href="#/">Início</a> › <a href="#/curso/' + esc(curso.id) + '">' + esc(curso.titulo) + "</a> › <span>Aula " + (i + 1) + "</span></nav>" +
+          '<div class="video"><div class="video-vazio video-trancado">' + icone.chama +
+            '<span class="cadeado-grande">' + icone.cadeado + "</span><strong>" + esc(aula.titulo) + "</strong><span>Aula " + (i + 1) + " de " + aulas.length + "</span></div></div>" +
+          '<div class="cartao aula-trancada">' + corpo + "</div>" +
+        "</div>" +
+        '<aside class="aula-lateral"><div class="cartao">' +
+          "<h3>" + esc(curso.titulo) + "</h3>" + barraProgresso(percentual(curso)) + listaModulos(curso, aula.id, true) +
+        "</div></aside>" +
       "</div>";
     window.scrollTo(0, 0);
   }
@@ -355,6 +473,9 @@
     var i = -1;
     for (var k = 0; k < aulas.length; k++) if (aulas[k].aula.id === aulaId) i = k;
     if (i < 0) return naoEncontrado();
+
+    var acesso = acessoAula(curso, i);
+    if (!acesso.ok) return acesso.motivo === "carregando" ? carregando() : aulaTrancada(curso, aulas, i, acesso);
 
     var atual = aulas[i];
     var aula = atual.aula;
@@ -403,7 +524,7 @@
       document.getElementById("lateral").innerHTML =
         "<h3>" + esc(curso.titulo) + "</h3>" + barraProgresso(percentual(curso)) +
         (Conta.ativo && Conta.estado.pronto && !Conta.estado.usuario
-          ? '<p class="dica-login"><a href="#/entrar">Entre na sua conta</a> para salvar seu progresso em qualquer aparelho.</p>'
+          ? '<p class="dica-login"><a href="#/criar-conta">Crie sua conta gratuita</a> para liberar todas as aulas e salvar seu progresso.</p>'
           : "") +
         listaModulos(curso, aula.id, true);
     }
@@ -920,7 +1041,7 @@
     chamaHero: chamaHero, aviso: aviso, traduzirErro: traduzirErro, irPara: irPara,
     exigirLogin: exigirLogin, naoEncontrado: naoEncontrado, carregando: carregando,
     definirAtualizacao: function (fn) { atualizarPagina = fn; },
-    temAulas: temAulas, situacao: situacao, dataCurta: dataCurta,
+    temAulas: temAulas, situacao: situacao, dataCurta: dataCurta, textoPrerequisitos: textoPrerequisitos,
     configDoCurso: function (id) { return configCursos[id] || null; },
     recarregarConfigCursos: carregarConfigCursos
   };

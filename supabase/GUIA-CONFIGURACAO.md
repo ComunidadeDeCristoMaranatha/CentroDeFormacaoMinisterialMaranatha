@@ -76,6 +76,7 @@ Com isso, eu ligo o login no site, testo tudo e publico.
 - **Recuperação de senha:** funciona desde o início, mas com o limite de poucos e-mails por hora do plano gratuito. Quando o número de alunos crescer, configuramos um serviço de e-mail gratuito (ex.: Brevo ou Resend) para tirar esse limite.
 - **Etapa 2 (níveis de acesso):** rode também o arquivo `supabase/02-niveis-de-acesso.sql` no **SQL Editor**, do mesmo jeito que o primeiro.
 - **Etapa 3 (mostrar/esconder cursos):** rode o arquivo `supabase/03-visibilidade-dos-cursos.sql`. Depois disso, os administradores controlam os cursos em **Painel → Cursos**.
+- **Etapa 4 (pré-requisitos):** rode o arquivo `supabase/04-pre-requisitos.sql`. Os pré-requisitos ficam em **Painel → Cursos**, e a liberação de um aluno sem pré-requisito fica na página da pessoa (**Painel → Pessoas → nome**).
 - **O primeiro administrador:** a pessoa cria a conta normalmente no site. Depois, no **SQL Editor**, rode (trocando o e-mail):
   ```sql
   update public.perfis set papel = 'admin' where email = 'email@exemplo.com';

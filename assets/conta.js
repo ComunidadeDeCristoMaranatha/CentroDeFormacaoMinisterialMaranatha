@@ -14,7 +14,7 @@
     : null;
 
   var CHAVE_LOCAL = "cfm-progresso-v1";
-  var estado = { pronto: !ativo, usuario: null, perfil: null, equipe: [], progresso: {}, acaoUrl: null, erroUrl: null, acabouDeEntrar: false };
+  var estado = { pronto: !ativo, usuario: null, perfil: null, equipe: [], dispensas: [], progresso: {}, acaoUrl: null, erroUrl: null, acabouDeEntrar: false };
   var ouvintes = [];
 
   function avisar(evento, detalhe) {
@@ -43,6 +43,10 @@
     // Funções de professor/tutor em cursos (se a tabela ainda não existir, segue sem elas)
     var eq = await cliente.from("equipe_curso").select("curso_id, funcao").eq("usuario_id", estado.usuario.id);
     estado.equipe = eq.error ? [] : eq.data;
+
+    // Cursos que o admin liberou para esta pessoa mesmo sem o pré-requisito
+    var ds = await cliente.from("prerequisito_dispensas").select("curso_id").eq("usuario_id", estado.usuario.id);
+    estado.dispensas = ds.error ? [] : ds.data.map(function (d) { return d.curso_id; });
   }
 
   async function sincronizarProgresso() {
@@ -84,6 +88,7 @@
     estado.usuario = null;
     estado.perfil = null;
     estado.equipe = [];
+    estado.dispensas = [];
     estado.progresso = {};
     limparLocal();
   }
