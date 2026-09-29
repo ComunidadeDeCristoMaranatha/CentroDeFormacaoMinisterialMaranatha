@@ -148,6 +148,24 @@
   }
   function plural(n, um, varios) { return n + " " + (n === 1 ? um : varios); }
 
+  // "BIANCA ROSSANE DE SOUZA" → "Bianca Rossane de Souza" (mesma regra do banco: supabase/05-padronizar-nomes.sql)
+  var PARTICULAS = ["da", "das", "de", "di", "do", "dos", "du", "e"];
+  function normalizarNome(nome) {
+    var palavras = String(nome || "").trim().split(/\s+/).filter(Boolean);
+    return palavras.map(function (p, i) {
+      var baixa = p.toLocaleLowerCase("pt-BR");
+      if (i > 0 && PARTICULAS.indexOf(baixa) >= 0) return baixa;
+      if (p !== p.toLocaleUpperCase("pt-BR") && p !== baixa) return p; // misturada de propósito: mantém
+      return baixa.replace(/(^|[-'’])(\S)/g, function (m, sep, letra) { return sep + letra.toLocaleUpperCase("pt-BR"); });
+    }).join(" ");
+  }
+  // Ao sair do campo de nome, já mostra como vai ficar salvo
+  function ligarCampoNome(form) {
+    form.querySelectorAll('input[name="nome"], input[name="nome_completo"]').forEach(function (campo) {
+      campo.addEventListener("blur", function () { campo.value = normalizarNome(campo.value); });
+    });
+  }
+
   // Transforma o texto simples das aulas em HTML:
   // linha em branco = novo parágrafo · **texto** = negrito · linhas com "- " = lista · "## " = subtítulo
   function negrito(t) { return esc(t).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>"); }
@@ -735,12 +753,13 @@
     ligarGoogle();
 
     var form = app.querySelector("form");
+    ligarCampoNome(form);
     ligarFormulario(form, function (d) {
       var email = String(d.get("email") || "").trim();
       if (!/^\S+@\S+\.\S+$/.test(email)) throw erroValidacao("Digite um e-mail válido.");
 
       if (modo === "criar") {
-        var nome = String(d.get("nome") || "").trim();
+        var nome = normalizarNome(d.get("nome"));
         if (nome.split(/\s+/).length < 2) throw erroValidacao("Digite seu nome completo (nome e sobrenome).");
         if (String(d.get("senha")).length < 8) throw erroValidacao("A senha precisa ter pelo menos 8 caracteres.");
         if (d.get("senha") !== d.get("senha2")) throw erroValidacao("As duas senhas não são iguais.");
@@ -808,6 +827,7 @@
 
   function ligarFormPerfil(aoSalvar) {
     var form = document.getElementById("form-perfil");
+    ligarCampoNome(form);
     var outra = form.querySelector('[name="outra_igreja"]');
     form.querySelectorAll('[name="tipo_igreja"]').forEach(function (r) {
       r.addEventListener("change", function () {
@@ -817,7 +837,7 @@
     });
     ligarFormulario(form, function (d) {
       var dados = {
-        nome_completo: String(d.get("nome_completo") || "").trim().replace(/\s+/g, " "),
+        nome_completo: normalizarNome(d.get("nome_completo")),
         telefone: String(d.get("telefone") || "").trim(),
         cidade: String(d.get("cidade") || "").trim(),
         estado: String(d.get("estado") || "")
