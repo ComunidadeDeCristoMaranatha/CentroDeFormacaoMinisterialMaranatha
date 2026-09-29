@@ -92,8 +92,8 @@ O login usa o **Supabase** (gratuito). Para ligar, siga o guia em [`supabase/GUI
 - [ ] Trocar o logo pela versão oficial em alta qualidade (`assets/logo.png`)
 - [ ] Cadastrar os primeiros cursos de verdade e apagar o curso de exemplo
 - [ ] Criar capas para os cursos (imagem 16:9, em `Cursos/capas/`)
-- [x] Login de alunos (progresso salvo em qualquer aparelho): código pronto, falta configurar o Supabase
+- [x] Login de alunos (progresso salvo em qualquer aparelho)
+- [x] Níveis de acesso (aluno, tutor, professor, conselho, admin) e painel da equipe (`#/painel`)
 - [ ] Prova online (70% para aprovação, nova tentativa só com liberação do conselho)
-- [ ] Painel do conselho
 - [ ] Certificado de conclusão com código de validação
 - [ ] Domínio próprio (ex.: `cfm.ccmaranatha.com.br`)

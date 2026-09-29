@@ -424,7 +424,13 @@
     }
     var nome = (Conta.estado.perfil && Conta.estado.perfil.nome_completo) || u.email || "";
     var primeiro = nome.split(/[\s@]/)[0];
-    el.innerHTML = '<a class="avatar-topo" href="#/minha-conta" title="Minha conta">' +
+    el.innerHTML =
+      (Conta.temPainel()
+        ? '<a class="link-painel' + (/^#\/painel/.test(location.hash) ? " ativo" : "") + '" href="#/painel" title="Painel">' +
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>' +
+            "<span>Painel</span></a>"
+        : "") +
+      '<a class="avatar-topo" href="#/minha-conta" title="Minha conta">' +
       '<span class="avatar">' + esc(primeiro.charAt(0).toUpperCase()) + "</span>" +
       '<span class="avatar-nome">' + esc(primeiro) + "</span></a>";
   }
@@ -657,6 +663,11 @@
               (comGoogle ? "Você entra com sua conta Google." : "Você entra com e-mail e senha.") + "</small></p>" +
             '<button class="botao botao-secundario botao-largo" type="button" id="botao-sair">Sair da conta</button>' +
           "</div>" +
+          (Conta.temPainel()
+            ? '<div class="cartao" style="margin-top:16px"><h3>Equipe do CFM</h3>' +
+                '<p class="bloco-texto" style="font-size:15px">' + esc(descreverAcesso()) + "</p>" +
+                '<a class="botao botao-principal botao-largo" href="#/painel">Abrir o painel</a></div>'
+            : "") +
           '<div class="cartao" style="margin-top:16px">' +
             "<h3>Seus dados e privacidade</h3>" +
             '<p class="bloco-texto" style="font-size:14px">Veja como usamos seus dados na <a href="#/privacidade">Política de Privacidade</a>.</p>' +
@@ -677,6 +688,17 @@
         .catch(function (e) { aviso(traduzirErro(e), "erro"); });
     });
     window.scrollTo(0, 0);
+  }
+
+  function descreverAcesso() {
+    var partes = [];
+    if (Conta.ehAdmin()) partes.push("Administrador(a)");
+    else if (Conta.ehConselho()) partes.push("Conselho geral");
+    (Conta.estado.equipe || []).forEach(function (e) {
+      var c = CURSOS.filter(function (x) { return x.id === e.curso_id; })[0];
+      partes.push((e.funcao === "professor" ? "Professor(a)" : "Tutor(a)") + " em " + (c ? c.titulo : e.curso_id));
+    });
+    return "Seu acesso: " + partes.join(" · ") + ".";
   }
 
   /* ---------- Nova senha (depois do link "esqueci minha senha") ---------- */
@@ -718,7 +740,7 @@
           "- Entrar em contato sobre os cursos do CFM\n\n" +
           "Não vendemos nem compartilhamos seus dados com empresas ou outras organizações.\n\n" +
           "## Quem tem acesso\n" +
-          "Apenas a equipe responsável pelo CFM. Os dados ficam guardados com segurança no Supabase, o serviço que usamos para as contas da plataforma.\n\n" +
+          "Apenas a equipe do CFM: a administração e o conselho geral, além dos professores e tutores dos cursos que você faz (eles veem só os alunos desses cursos). Os dados ficam guardados com segurança no Supabase, o serviço que usamos para as contas da plataforma.\n\n" +
           "## Seus direitos\n" +
           "Você pode ver e corrigir seus dados a qualquer momento em **Minha conta**. Também pode **excluir sua conta** por lá, e todos os seus dados são apagados. Para qualquer dúvida, fale com a secretaria do CFM pelos canais oficiais da igreja."
         ) + "</div>" +
@@ -757,6 +779,7 @@
     else if (partes[0] === "minha-conta") paginaMinhaConta();
     else if (partes[0] === "nova-senha") paginaNovaSenha();
     else if (partes[0] === "privacidade") paginaPrivacidade();
+    else if (partes[0] === "painel" && window.Painel) { menu = "painel"; window.Painel.pagina(partes.slice(1)); }
     else naoEncontrado();
 
     document.querySelectorAll("[data-nav]").forEach(function (a) {
@@ -801,6 +824,18 @@
     irPara(destino);
   }
 
-  rota();
-  Conta.iniciar();
+  // Ferramentas compartilhadas com o painel (assets/painel.js)
+  window.CFM = {
+    app: app, cursos: CURSOS, icone: icone,
+    esc: esc, plural: plural, todasAulas: todasAulas, disponivel: disponivel, barraProgresso: barraProgresso,
+    chamaHero: chamaHero, aviso: aviso, traduzirErro: traduzirErro, irPara: irPara,
+    exigirLogin: exigirLogin, naoEncontrado: naoEncontrado, carregando: carregando,
+    definirAtualizacao: function (fn) { atualizarPagina = fn; }
+  };
+
+  // Espera todos os arquivos (inclusive o painel) carregarem antes de abrir a página
+  document.addEventListener("DOMContentLoaded", function () {
+    rota();
+    Conta.iniciar();
+  });
 })();

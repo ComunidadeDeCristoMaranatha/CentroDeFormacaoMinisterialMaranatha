@@ -14,7 +14,7 @@
     : null;
 
   var CHAVE_LOCAL = "cfm-progresso-v1";
-  var estado = { pronto: !ativo, usuario: null, perfil: null, progresso: {}, acaoUrl: null, erroUrl: null, acabouDeEntrar: false };
+  var estado = { pronto: !ativo, usuario: null, perfil: null, equipe: [], progresso: {}, acaoUrl: null, erroUrl: null, acabouDeEntrar: false };
   var ouvintes = [];
 
   function avisar(evento, detalhe) {
@@ -39,6 +39,10 @@
     var r = await cliente.from("perfis").select("*").eq("id", estado.usuario.id).maybeSingle();
     if (r.error) throw r.error;
     estado.perfil = r.data;
+
+    // Funções de professor/tutor em cursos (se a tabela ainda não existir, segue sem elas)
+    var eq = await cliente.from("equipe_curso").select("curso_id, funcao").eq("usuario_id", estado.usuario.id);
+    estado.equipe = eq.error ? [] : eq.data;
   }
 
   async function sincronizarProgresso() {
@@ -79,6 +83,7 @@
   function aoSair() {
     estado.usuario = null;
     estado.perfil = null;
+    estado.equipe = [];
     estado.progresso = {};
     limparLocal();
   }
@@ -183,6 +188,12 @@
     avisar("saiu");
   }
 
+  /* ---------- Níveis de acesso ---------- */
+  function papel() { return (estado.perfil && estado.perfil.papel) || "aluno"; }
+  function ehAdmin() { return papel() === "admin"; }
+  function ehConselho() { return papel() === "conselho" || papel() === "admin"; }
+  function temPainel() { return ehConselho() || (estado.equipe || []).length > 0; }
+
   function perfilCompleto() {
     var p = estado.perfil;
     return !!(p && p.nome_completo && p.telefone && p.cidade && p.estado && p.igreja && p.aceitou_termos_em);
@@ -220,6 +231,11 @@
     ativo: ativo,
     googleAtivo: ativo && !!cfg.googleAtivo,
     estado: estado,
+    cliente: cliente,
+    papel: papel,
+    ehAdmin: ehAdmin,
+    ehConselho: ehConselho,
+    temPainel: temPainel,
     aoMudar: function (fn) { ouvintes.push(fn); },
     iniciar: iniciar,
     perfilCompleto: perfilCompleto,

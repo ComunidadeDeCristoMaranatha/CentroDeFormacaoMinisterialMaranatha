@@ -74,8 +74,10 @@ Com isso, eu ligo o login no site, testo tudo e publico.
 
 - **Pausa por falta de uso:** no plano gratuito, o Supabase pausa o projeto se ele ficar **7 dias sem nenhum acesso**. Com alunos usando, isso não acontece. Mesmo assim, vou configurar um "acesso automático" semanal para evitar a pausa.
 - **Recuperação de senha:** funciona desde o início, mas com o limite de poucos e-mails por hora do plano gratuito. Quando o número de alunos crescer, configuramos um serviço de e-mail gratuito (ex.: Brevo ou Resend) para tirar esse limite.
-- **Tornar alguém admin ou do conselho:** a pessoa cria a conta normalmente no site. Depois, no **SQL Editor**, rode (trocando o e-mail):
+- **Etapa 2 (níveis de acesso):** rode também o arquivo `supabase/02-niveis-de-acesso.sql` no **SQL Editor**, do mesmo jeito que o primeiro.
+- **O primeiro administrador:** a pessoa cria a conta normalmente no site. Depois, no **SQL Editor**, rode (trocando o e-mail):
   ```sql
-  update public.perfis set papel = 'conselho' where email = 'email@exemplo.com';
+  update public.perfis set papel = 'admin' where email = 'email@exemplo.com';
   ```
+  A partir daí, o próprio admin define o acesso das outras pessoas (conselho, professor, tutor) pelo **Painel** do site, sem precisar de SQL.
 - **Ver os alunos cadastrados:** menu **Table Editor → perfis**.

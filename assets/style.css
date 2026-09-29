@@ -454,6 +454,89 @@ a.aula-item:hover { background: var(--superficie-2); }
 .aviso.sucesso { border-color: rgba(127,211,138,.5); }
 .aviso.erro { border-color: rgba(255,120,90,.6); }
 
+/* ============================================================
+   PAINEL DA EQUIPE
+   ============================================================ */
+.conta-topo { display: flex; align-items: center; gap: 8px; }
+.link-painel {
+  display: flex; align-items: center; gap: 6px; color: var(--texto-suave); text-decoration: none;
+  font-size: 14px; font-weight: 500; padding: 8px 12px; border-radius: 999px; border: 1px solid var(--borda);
+}
+.link-painel:hover, .link-painel.ativo { color: var(--amarelo); border-color: var(--laranja); }
+@media (max-width: 640px) { .link-painel span { display: none; } .link-painel { padding: 8px; } }
+
+.suave { color: var(--texto-suave); }
+.painel { padding-top: 28px; padding-bottom: 72px; }
+.painel-barra { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 24px; }
+.abas-painel { display: flex; gap: 4px; background: var(--superficie); border: 1px solid var(--borda); border-radius: 999px; padding: 4px; }
+.abas-painel a { padding: 8px 18px; border-radius: 999px; color: var(--texto-suave); text-decoration: none; font-weight: 600; font-size: 15px; }
+.abas-painel a.ativa { background: var(--gradiente); color: #1a0f08; }
+.painel-carregando, .painel-vazio { color: var(--texto-suave); padding: 24px 0; }
+
+.estatisticas { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 24px; }
+.estatistica { background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); padding: 18px 20px; }
+.estatistica strong { display: block; font-family: var(--fonte-titulo); font-size: 34px; line-height: 1.1; background: var(--gradiente); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.estatistica span { color: var(--texto-suave); font-size: 14px; }
+
+.filtros { display: grid; grid-template-columns: 1fr 240px 180px; gap: 10px; margin-bottom: 14px; }
+.filtros input, .filtros select, .adicionar-funcao select {
+  width: 100%; font: inherit; font-size: 15px; color: var(--texto); background: var(--superficie);
+  border: 1px solid var(--borda); border-radius: var(--raio-p); padding: 10px 12px;
+}
+.filtros input:focus, .filtros select:focus { outline: none; border-color: var(--laranja); }
+@media (max-width: 800px) { .filtros { grid-template-columns: 1fr; } }
+.lista-topo { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; color: var(--texto-suave); font-size: 14px; }
+
+.tabela-pessoas { background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); overflow: hidden; }
+.linha-pessoa {
+  display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1.4fr) 96px; gap: 14px;
+  align-items: center; padding: 14px 18px; border-top: 1px solid var(--borda);
+  color: var(--texto); text-decoration: none; font-size: 14px;
+}
+.linha-pessoa:first-child { border-top: 0; }
+a.linha-pessoa:hover { background: var(--superficie-2); }
+.linha-pessoa.cabecalho { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--texto-suave); padding-top: 12px; padding-bottom: 12px; }
+.linha-pessoa > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.col-nome { display: flex; flex-direction: column; gap: 2px; }
+.col-nome strong { font-size: 15px; }
+.col-nome small, .col-progresso small { color: var(--texto-suave); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.col-progresso .progresso { font-size: 13px; }
+@media (max-width: 860px) {
+  .linha-pessoa { grid-template-columns: 1fr 1fr; gap: 8px 14px; }
+  .linha-pessoa.cabecalho { display: none; }
+  .linha-pessoa .col-nome { grid-column: 1 / -1; }
+  .linha-pessoa > span[data-rotulo]::before { content: attr(data-rotulo); display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--texto-suave); }
+}
+
+.selo-papel { display: inline-block; align-self: flex-start; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; margin: 4px 4px 0 0; border: 1px solid var(--borda); color: var(--texto-suave); }
+.selo-papel.papel-admin { background: var(--gradiente); color: #1a0f08; border-color: transparent; }
+.selo-papel.papel-conselho { color: var(--amarelo); border-color: rgba(251,176,59,.5); }
+.selo-papel.papel-professor { color: #ffb07a; border-color: rgba(247,134,28,.5); }
+.selo-papel.papel-tutor { color: #9fd3ff; border-color: rgba(159,211,255,.4); }
+
+.voltar { display: inline-block; color: var(--texto-suave); text-decoration: none; margin-bottom: 8px; }
+.voltar:hover { color: var(--texto); }
+.pessoa-corpo { padding: 12px 0 0; }
+.pessoa-cabecalho { display: flex; gap: 16px; align-items: center; }
+.pessoa-cabecalho h2 { margin: 0; font-size: 26px; }
+.avatar-grande { width: 56px; height: 56px; font-size: 24px; flex-shrink: 0; }
+.dados-pessoa { display: grid; grid-template-columns: 170px 1fr; gap: 10px 16px; margin: 20px 0 0; font-size: 15px; }
+.dados-pessoa dt { color: var(--texto-suave); }
+.dados-pessoa dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 520px) { .dados-pessoa { grid-template-columns: 1fr; gap: 2px; } .dados-pessoa dd { margin-bottom: 10px; } }
+.meu-curso .suave { display: block; margin-top: 6px; font-size: 13px; }
+
+.lista-funcoes { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 8px; }
+.lista-funcoes li { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 14px; background: var(--fundo); border: 1px solid var(--borda); border-radius: var(--raio-p); padding: 8px 12px; }
+.botao-remover { background: none; border: 0; color: #ff8f7a; font: inherit; font-size: 13px; cursor: pointer; padding: 4px; }
+.botao-remover:hover { text-decoration: underline; }
+.adicionar-funcao { display: grid; grid-template-columns: 1fr; gap: 8px; margin-bottom: 12px; }
+
+.painel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.lista-equipe { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 15px; }
+.lista-equipe a { color: var(--texto); }
+.rotulo-lista { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--texto-suave); margin: 14px 0 6px; }
+
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; scroll-behavior: auto !important; }
 }
