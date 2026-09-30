@@ -12,6 +12,18 @@
    ACESSO ÀS AULAS: a PRIMEIRA aula de cada curso é aberta a todos.
    As demais exigem conta no site (e o pré-requisito, se houver).
 
+   AULA DE APRESENTAÇÃO (automática): todo curso com aulas ganha sozinho,
+   no começo, o módulo "Comece aqui" com a aula "Apresentação do curso"
+   (é a aula aberta a todos). O texto dela é montado a partir da descrição,
+   do "voceVaiAprender", da lista de módulos e do "paraQuem" do curso.
+   Para colocar o VÍDEO de apresentação (e, se quiser, um texto próprio):
+       apresentacao: {
+         video: "https://www.youtube.com/watch?v=XXXXXXXXXXX",
+         duracao: "5 min",
+         texto: `Texto próprio (opcional; se não tiver, o site monta sozinho).`
+       },
+   Para um curso NÃO ter essa aula:  apresentacao: false,
+
    COMO FUNCIONA (em palavras simples):
    - Um CURSO tem vários MÓDULOS (as "partes" do curso).
    - Cada MÓDULO tem várias AULAS.
@@ -55,6 +67,7 @@
      capa: "",   // opcional: caminho de uma imagem, ex.: "Cursos/capas/meu-curso.jpg"
      voceVaiAprender: ["Primeiro ponto", "Segundo ponto"],
      paraQuem: "Para quem é este curso.",
+     apresentacao: { video: "", duracao: "" },   // vídeo da aula de apresentação (opcional)
      modulos: [
        {
          titulo: "Módulo 1 — Nome do módulo",
@@ -103,6 +116,7 @@ O curso faz parte da trilha **Crescimento Espiritual, Ministerial e Pessoal** (M
       "O que a igreja crê sobre evangelismo, política, aborto e generosidade"
     ],
     paraQuem: "Para quem deseja se tornar membro da Comunidade de Cristo Maranatha e para todos que querem conhecer melhor a igreja.",
+    apresentacao: { video: "", duracao: "" }, // cole aqui o link do vídeo de apresentação do curso
     modulos: [
       {
         titulo: "Apresentação — Conhecendo a Maranatha",
@@ -306,6 +320,7 @@ Que o Espírito Santo te ilumine nessa jornada!`,
       "A igreja, a volta de Jesus, a ressurreição e o juízo final"
     ],
     paraQuem: "Para todos os membros da CCM e para quem deseja firmar a sua fé nas verdades essenciais da Palavra de Deus.",
+    apresentacao: { video: "", duracao: "" }, // cole aqui o link do vídeo de apresentação do curso
     modulos: [
       {
         titulo: "Módulo 1 — A Bíblia e o Deus que se revela",

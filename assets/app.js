@@ -7,6 +7,40 @@
   "use strict";
 
   var CURSOS = window.CURSOS || [];
+
+  /* ---------- Aula de apresentação: todo curso com aulas começa com ela ----------
+     É a aula aberta a todos (inclusive sem conta). O texto é montado a partir do
+     cadastro do curso; em Cursos/cursos.js dá para colocar vídeo e texto próprios em
+     "apresentacao: { video: ..., texto: ... }", ou desligar com "apresentacao: false". */
+  function textoApresentacao(curso) {
+    var partes = ["Seja bem-vindo(a) ao curso **" + curso.titulo + "**!"];
+    if (curso.descricao) partes.push(curso.descricao.trim());
+    if (curso.voceVaiAprender && curso.voceVaiAprender.length) {
+      partes.push("## O que você vai aprender\n" + curso.voceVaiAprender.map(function (i) { return "- " + i; }).join("\n"));
+    }
+    partes.push("## Como o curso está organizado\n" + curso.modulos.map(function (m) {
+      var n = (m.aulas || []).length;
+      return "- **" + m.titulo + "** (" + n + (n === 1 ? " aula" : " aulas") + ")";
+    }).join("\n"));
+    if (curso.paraQuem) partes.push("## Para quem é\n" + curso.paraQuem);
+    return partes.join("\n\n");
+  }
+  CURSOS.forEach(function (curso) {
+    var temConteudo = curso.status !== "em-breve" && (curso.modulos || []).some(function (m) { return (m.aulas || []).length; });
+    if (!temConteudo || curso.apresentacao === false) return;
+    var ap = curso.apresentacao || {};
+    curso.modulos.unshift({
+      titulo: "Comece aqui",
+      aulas: [{
+        id: "apresentacao",
+        titulo: "Apresentação do curso",
+        duracao: ap.duracao || "",
+        video: ap.video || "",
+        texto: ap.texto || textoApresentacao(curso),
+        materiais: ap.materiais || []
+      }]
+    });
+  });
   var Conta = window.Conta;
   var app = document.getElementById("app");
   // Quando a página sabe se atualizar sozinha (sem recarregar o vídeo), guarda a função aqui
