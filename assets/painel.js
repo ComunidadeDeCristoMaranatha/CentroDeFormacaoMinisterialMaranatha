@@ -569,25 +569,49 @@
     return { valores: function () { return selecionados.slice(); } };
   }
 
+  // Busca, filtro e cartões abertos continuam iguais depois de salvar (a lista é redesenhada)
+  var filtroCursos = { termo: "", situacao: "" };
+  var cursosAbertos = {};
+
+  // Situação usada no filtro: "preparacao" (sem aulas) | "aberto" | "agendado" | "oculto" | "encerrado"
+  function situacaoFiltro(curso) {
+    return C.temAulas(curso) ? C.situacao(curso) : "preparacao";
+  }
+
   function renderCursos(el) {
     el.innerHTML =
-      '<div class="aviso-em-breve">' + C.icone.info +
-        "<div><strong>Como funciona</strong><p>Escolha se cada curso aparece no site e, se quiser, programe as datas. " +
+      '<details class="aviso-em-breve como-funciona">' +
+        "<summary>" + C.icone.info + "<strong>Como funciona</strong></summary>" +
+        "<p>Escolha se cada curso aparece no site e, se quiser, programe as datas. " +
         "Antes da data de abertura, o curso aparece como <strong>“Abre em …”</strong> e as aulas ficam bloqueadas. " +
         "Depois da data final, ele <strong>some do site sozinho</strong>. Deixe as datas em branco para não usar. " +
-        "Como administrador, você continua vendo todos os cursos, com um aviso.</p></div>" +
+        "Como administrador, você continua vendo todos os cursos, com um aviso.</p>" +
+      "</details>" +
+      '<div class="filtros filtros-cursos">' +
+        '<input type="search" id="busca-cursos" placeholder="Buscar curso pelo nome" aria-label="Buscar curso" value="' + esc(filtroCursos.termo) + '">' +
+        '<select id="filtro-situacao" aria-label="Situação">' +
+          [["", "Todas as situações"], ["aberto", "Visíveis"], ["agendado", "Abrem em breve"], ["oculto", "Ocultos ou encerrados"],
+           ["preparacao", "Em preparação (sem aulas)"], ["prereq", "Com pré-requisito"]].map(function (o) {
+            return '<option value="' + o[0] + '"' + (filtroCursos.situacao === o[0] ? " selected" : "") + ">" + o[1] + "</option>";
+          }).join("") +
+        "</select>" +
       "</div>" +
+      '<div class="lista-topo"><span id="contagem-cursos"></span>' +
+        '<span class="acoes-lista"><button type="button" class="botao-link" id="abrir-todos">Abrir todos</button> · ' +
+        '<button type="button" class="botao-link" id="fechar-todos">Fechar todos</button></span></div>' +
       '<div class="lista-cursos-config">' + C.cursos.map(function (curso) {
         var cfg = C.configDoCurso(curso.id) || { visivel: true };
         var estado = descreverSituacao(curso);
         var qtd = C.todasAulas(curso).length;
-        return '<div class="cartao curso-config" data-curso="' + esc(curso.id) + '">' +
-          '<div class="curso-config-topo">' +
+        return '<details class="cartao curso-config" data-curso="' + esc(curso.id) + '"' +
+            ' data-busca="' + esc(normalizar(curso.titulo)) + '" data-situacao="' + situacaoFiltro(curso) + '"' +
+            ' data-prereq="' + (C.textoPrerequisitos(curso) ? "sim" : "nao") + '"' + (cursosAbertos[curso.id] ? " open" : "") + ">" +
+          '<summary class="curso-config-topo">' +
             "<div><h3>" + esc(curso.titulo) + "</h3><small class=\"suave\">" +
               (C.temAulas(curso) ? C.plural(qtd, "aula", "aulas") : "Sem aulas ainda — aparece como “Em breve”") +
               (C.textoPrerequisitos(curso) ? " · Pré-requisito: " + esc(C.textoPrerequisitos(curso)) : "") + "</small></div>" +
-            '<span class="estado ' + estado.classe + '">' + esc(estado.texto) + "</span>" +
-          "</div>" +
+            '<span class="curso-config-direita"><span class="estado ' + estado.classe + '">' + esc(estado.texto) + "</span>" + C.icone.seta + "</span>" +
+          "</summary>" +
           '<div class="formulario">' +
             '<label class="opcao"><input type="checkbox" data-campo="visivel"' + (cfg.visivel ? " checked" : "") + "><span>Mostrar este curso no site</span></label>" +
             '<div class="campo-linha-2">' +
@@ -612,8 +636,43 @@
               '<a class="botao botao-secundario botao-pequeno" href="#/curso/' + esc(curso.id) + '">Ver página do curso</a></div>' +
             '<div class="mensagem" role="alert"></div>' +
           "</div>" +
-        "</div>";
-      }).join("") + "</div>";
+        "</details>";
+      }).join("") + "</div>" +
+      '<p class="painel-vazio" id="cursos-vazio" hidden>Nenhum curso encontrado com esses filtros.</p>';
+
+    // Filtrar pela busca e pela situação
+    var busca = document.getElementById("busca-cursos");
+    var filtroSituacao = document.getElementById("filtro-situacao");
+    function filtrar() {
+      filtroCursos.termo = busca.value;
+      filtroCursos.situacao = filtroSituacao.value;
+      var termo = normalizar(busca.value.trim());
+      var sit = filtroSituacao.value;
+      var visiveis = 0;
+      el.querySelectorAll(".curso-config").forEach(function (cartao) {
+        var s = cartao.dataset.situacao;
+        var passa = (!termo || cartao.dataset.busca.indexOf(termo) >= 0) &&
+          (!sit || (sit === "prereq" ? cartao.dataset.prereq === "sim" : sit === "oculto" ? (s === "oculto" || s === "encerrado") : s === sit));
+        cartao.hidden = !passa;
+        if (passa) visiveis++;
+      });
+      document.getElementById("contagem-cursos").textContent = C.plural(visiveis, "curso", "cursos");
+      document.getElementById("cursos-vazio").hidden = visiveis > 0;
+    }
+    busca.addEventListener("input", filtrar);
+    filtroSituacao.addEventListener("change", filtrar);
+    filtrar();
+
+    // Lembrar quais cartões estão abertos; abrir/fechar todos (só os que aparecem no filtro)
+    el.querySelectorAll(".curso-config").forEach(function (cartao) {
+      cartao.addEventListener("toggle", function () { cursosAbertos[cartao.dataset.curso] = cartao.open; });
+    });
+    document.getElementById("abrir-todos").addEventListener("click", function () {
+      el.querySelectorAll(".curso-config:not([hidden])").forEach(function (c) { c.open = true; });
+    });
+    document.getElementById("fechar-todos").addEventListener("click", function () {
+      el.querySelectorAll(".curso-config").forEach(function (c) { c.open = false; });
+    });
 
     el.querySelectorAll(".curso-config").forEach(function (cartao) {
       var botao = cartao.querySelector("[data-salvar]");
