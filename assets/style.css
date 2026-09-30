@@ -551,10 +551,10 @@ a.linha-pessoa:hover { background: var(--superficie-2); }
 }
 
 .selo-papel { display: inline-block; align-self: flex-start; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; margin: 4px 4px 0 0; border: 1px solid var(--borda); color: var(--texto-suave); }
-.selo-papel.papel-admin { background: var(--gradiente); color: #1a0f08; border-color: transparent; }
+.selo-papel.papel-admin { background: #d93a2b; color: #fff; border-color: #d93a2b; }     /* vermelho */
 .selo-papel.papel-conselho { color: var(--amarelo); border-color: rgba(251,176,59,.5); }
-.selo-papel.papel-professor { color: #ffb07a; border-color: rgba(247,134,28,.5); }
-.selo-papel.papel-tutor { color: #9fd3ff; border-color: rgba(159,211,255,.4); }
+.selo-papel.papel-professor { background: #2f6fed; color: #fff; border-color: #2f6fed; } /* azul */
+.selo-papel.papel-tutor { background: #2e9e5b; color: #fff; border-color: #2e9e5b; }     /* verde */
 
 .voltar { display: inline-block; color: var(--texto-suave); text-decoration: none; margin-bottom: 8px; }
 .voltar:hover { color: var(--texto); }

@@ -24,7 +24,8 @@
   }
   function logado() { return Conta.ativo && !!Conta.estado.usuario; }
   function podeResponder(curso) {
-    return logado() && (Conta.estado.equipe || []).some(function (e) { return e.curso_id === curso.id; });
+    // Professor/tutor do curso ou administrador (o banco confere de novo ao salvar)
+    return logado() && (Conta.ehAdmin() || (Conta.estado.equipe || []).some(function (e) { return e.curso_id === curso.id; }));
   }
   function podeModerar() { return logado() && Conta.ehConselho(); }
   function convite(acao) {
@@ -128,7 +129,8 @@
   /* ============================================================
      DÚVIDAS (fórum da aula)
      ============================================================ */
-  var FUNCAO = { professor: "Professor(a)", tutor: "Tutor(a)" };
+  // Etiqueta da resposta (definida pelo banco): professor = azul, tutor = verde, admin = vermelho
+  var FUNCAO = { professor: "Professor(a)", tutor: "Tutor(a)", admin: "Administrador(a)" };
 
   function montarDuvidas(el, curso, aula, abrir) {
     el.innerHTML =
@@ -137,7 +139,7 @@
           "<strong>Dúvidas desta aula</strong>" +
           '<small class="suave resumo-recolhivel" data-resumo>Carregando…</small>' + C.icone.seta + "</summary>" +
         '<div class="recolhivel-corpo">' +
-          '<p class="suave forum-explica">As perguntas e respostas ficam visíveis para todos que assistem a esta aula. Quem responde são o professor e os tutores do curso.</p>' +
+          '<p class="suave forum-explica">As perguntas e respostas ficam visíveis para todos que assistem a esta aula. Quem responde são o professor e os tutores do curso, e também a administração do CFM.</p>' +
           '<div class="forum-perguntar"></div>' +
           '<div class="forum-lista"></div>' +
         "</div>" +

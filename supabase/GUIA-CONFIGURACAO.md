@@ -76,6 +76,7 @@ Com isso, eu ligo o login no site, testo tudo e publico.
 - **Recuperação de senha:** funciona desde o início, mas com o limite de poucos e-mails por hora do plano gratuito. Quando o número de alunos crescer, configuramos um serviço de e-mail gratuito (ex.: Brevo ou Resend) para tirar esse limite.
 - **Etapa 2 (níveis de acesso):** rode também o arquivo `supabase/02-niveis-de-acesso.sql` no **SQL Editor**, do mesmo jeito que o primeiro.
 - **Etapa 3 (mostrar/esconder cursos):** rode o arquivo `supabase/03-visibilidade-dos-cursos.sql`. Depois disso, os administradores controlam os cursos em **Painel → Cursos**.
+- **Etapa 8 (admin responde dúvidas):** rode o arquivo `supabase/08-admin-responde-duvidas.sql`. Administradores passam a responder em qualquer curso (etiqueta vermelha, a menos que sejam professor ou tutor do curso).
 - **Etapa 7 (anotações e dúvidas):** rode o arquivo `supabase/07-anotacoes-e-duvidas.sql`. Libera as anotações pessoais e o fórum de dúvidas em cada aula.
 - **Etapa 6 (matrículas):** rode o arquivo `supabase/06-matriculas.sql`. O curso passa a contar como iniciado assim que o aluno abre uma aula.
 - **Etapa 5 (nomes padronizados):** rode o arquivo `supabase/05-padronizar-nomes.sql`. Ele corrige os nomes já salvos (ex.: "MARIA DA SILVA" vira "Maria da Silva") e passa a padronizar todo nome novo. No final aparece um teste: o resultado deve ser "José da Silva Ávila de Souza e Castro".
