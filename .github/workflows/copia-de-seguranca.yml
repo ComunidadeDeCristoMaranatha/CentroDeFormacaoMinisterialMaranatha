@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   copia:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # versão fixa (o "latest" muda sozinho e pode quebrar a instalação)
     steps:
       - name: Instalar as ferramentas do PostgreSQL
         run: |
@@ -49,7 +49,7 @@ jobs:
           echo "Cópia gerada: cfm-copia-${DATA}.tar.gz.enc ($(du -h cfm-copia-${DATA}.tar.gz.enc | cut -f1))"
 
       - name: Guardar a cópia (fica disponível por 90 dias)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ env.ARQUIVO }}
           path: ${{ env.ARQUIVO }}
