@@ -107,5 +107,6 @@ O login usa o **Supabase** (gratuito). Para ligar, siga o guia em [`supabase/GUI
 - [x] Login de alunos (progresso salvo em qualquer aparelho)
 - [x] Níveis de acesso (aluno, tutor, professor, conselho, admin) e painel da equipe (`#/painel`)
 - [ ] Prova online (70% para aprovação, nova tentativa só com liberação do conselho)
+  - exigir **e-mail validado por código** antes da prova (precisa do envio de e-mails pelo Gmail configurado); celular não será validado
 - [ ] Certificado de conclusão com código de validação
 - [ ] Domínio próprio (ex.: `cfm.ccmaranatha.com.br`)
