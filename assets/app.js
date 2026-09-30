@@ -581,6 +581,7 @@
           ((curso.modulos || []).length ? '<h2 style="margin-top:36px">Conteúdo do curso</h2>' + listaModulos(curso, null, false) : "") +
         "</div>" +
         "<aside>" +
+          cartaoProva(curso) +
           cartaoPrerequisitos(curso) +
           (curso.paraQuem || curso.voceVaiAprender
             ? '<div class="cartao">' +
@@ -600,6 +601,19 @@
       });
     }
     window.scrollTo(0, 0);
+  }
+
+  // Cartão "Prova final" na página do curso
+  function cartaoProva(curso) {
+    if (!Conta.ativo || !temAulas(curso) || !disponivel(curso)) return "";
+    var p = percentual(curso);
+    return '<div class="cartao cartao-prova">' +
+      "<h3>Prova final e certificado</h3>" +
+      (p === 100
+        ? '<p class="suave" style="font-size:14px;margin:0 0 12px">Você concluiu todas as aulas. Faça a prova para receber o certificado.</p>' +
+          '<a class="botao botao-principal botao-largo" href="#/curso/' + esc(curso.id) + '/prova">Ir para a prova</a>'
+        : '<p class="suave" style="font-size:14px;margin:0 0 10px">A prova é liberada quando você concluir todas as aulas do curso.</p>' + barraProgresso(p)) +
+    "</div>";
   }
 
   function cartaoPrerequisitos(curso) {
@@ -1133,6 +1147,7 @@
       '<div class="container curso-corpo">' +
         "<div>" +
           "<h2>Meus cursos</h2>" + '<div class="meus-cursos">' + meusCursos + "</div>" +
+          '<h2 style="margin-top:44px">Meus certificados</h2>' + '<div id="meus-certificados" class="meus-cursos"><p class="suave">Carregando…</p></div>' +
           '<h2 style="margin-top:44px">Minhas anotações</h2>' + '<div id="minhas-anotacoes" class="minhas-anotacoes"></div>' +
           '<h2 style="margin-top:44px">Meus dados</h2>' +
           '<div class="cartao">' + formPerfil(p, "Salvar alterações") + "</div>" +
@@ -1149,6 +1164,7 @@
 
     ligarFormPerfil(function () { aviso("Dados salvos.", "sucesso"); });
     if (window.Interacao) window.Interacao.listarAnotacoes(document.getElementById("minhas-anotacoes"));
+    if (window.Prova) window.Prova.listarCertificados(document.getElementById("meus-certificados"));
     ligarSair();
     document.getElementById("botao-excluir").addEventListener("click", function () {
       var ok = window.confirm("Tem certeza? Sua conta, seus dados e seu progresso serão apagados para sempre. Isso não pode ser desfeito.");
@@ -1291,6 +1307,7 @@
       var curso = CURSOS.filter(function (c) { return c.id === partes[1]; })[0];
       if (!curso) naoEncontrado();
       else if (partes[2] === "aula" && partes[3]) paginaAula(curso, partes[3], partes[4] === "duvidas");
+      else if (partes[2] === "prova" && window.Prova) window.Prova.pagina(curso);
       else paginaCurso(curso);
     } else if (!partes[0] || partes[0] === "cursos" || partes[0] === "sobre") {
       menu = partes[0] || "inicio";
@@ -1302,6 +1319,8 @@
     else if (partes[0] === "minha-conta") paginaMinhaConta(partes[1]);
     else if (partes[0] === "nova-senha") paginaNovaSenha();
     else if (partes[0] === "privacidade") paginaPrivacidade();
+    else if (partes[0] === "certificado" && partes[1] && window.Prova) window.Prova.certificado(partes[1]);
+    else if (partes[0] === "validar" && window.Prova) window.Prova.validar();
     else if (partes[0] === "painel" && window.Painel) { menu = "painel"; window.Painel.pagina(partes.slice(1)); }
     else naoEncontrado();
 
@@ -1365,6 +1384,7 @@
     exigirLogin: exigirLogin, naoEncontrado: naoEncontrado, carregando: carregando,
     definirAtualizacao: function (fn) { atualizarPagina = fn; },
     temAulas: temAulas, situacao: situacao, dataCurta: dataCurta, textoPrerequisitos: textoPrerequisitos,
+    percentual: percentual, cursoPorId: cursoPorId,
     configDoCurso: function (id) { return configCursos[id] || null; },
     recarregarConfigCursos: carregarConfigCursos
   };

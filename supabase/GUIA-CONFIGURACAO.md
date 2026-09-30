@@ -76,6 +76,7 @@ Com isso, eu ligo o login no site, testo tudo e publico.
 - **Recuperação de senha:** funciona desde o início, mas com o limite de poucos e-mails por hora do plano gratuito. Quando o número de alunos crescer, configuramos um serviço de e-mail gratuito (ex.: Brevo ou Resend) para tirar esse limite.
 - **Etapa 2 (níveis de acesso):** rode também o arquivo `supabase/02-niveis-de-acesso.sql` no **SQL Editor**, do mesmo jeito que o primeiro.
 - **Etapa 3 (mostrar/esconder cursos):** rode o arquivo `supabase/03-visibilidade-dos-cursos.sql`. Depois disso, os administradores controlam os cursos em **Painel → Cursos**.
+- **Etapa 9 (provas e certificados):** rode o arquivo `supabase/09-provas-e-certificados.sql`. Depois, em **Authentication → Emails → Magic Link**, cole o conteúdo de `supabase/emails/3-link-de-acesso.html` (é o e-mail com o código de 6 dígitos que valida o e-mail antes da prova). As perguntas atuais são de **exemplo** (começam com "[EXEMPLO]"). O conselho libera uma nova tentativa em **Painel → Provas**.
 - **Etapa 8 (admin responde dúvidas):** rode o arquivo `supabase/08-admin-responde-duvidas.sql`. Administradores passam a responder em qualquer curso (etiqueta vermelha, a menos que sejam professor ou tutor do curso).
 - **Etapa 7 (anotações e dúvidas):** rode o arquivo `supabase/07-anotacoes-e-duvidas.sql`. Libera as anotações pessoais e o fórum de dúvidas em cada aula.
 - **Etapa 6 (matrículas):** rode o arquivo `supabase/06-matriculas.sql`. O curso passa a contar como iniciado assim que o aluno abre uma aula.

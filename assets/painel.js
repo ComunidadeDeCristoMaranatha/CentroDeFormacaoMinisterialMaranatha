@@ -108,6 +108,7 @@
           '<nav class="abas-painel">' +
             '<a href="#/painel" class="' + (aba === "pessoas" || aba === "pessoa" ? "ativa" : "") + '">Pessoas</a>' +
             '<a href="#/painel/duvidas" class="' + (aba === "duvidas" ? "ativa" : "") + '">Dúvidas</a>' +
+            (Conta.ehConselho() ? '<a href="#/painel/provas" class="' + (aba === "provas" ? "ativa" : "") + '">Provas</a>' : "") +
             (Conta.ehConselho() ? '<a href="#/painel/equipe" class="' + (aba === "equipe" ? "ativa" : "") + '">Equipe</a>' : "") +
             (Conta.ehAdmin() ? '<a href="#/painel/cursos" class="' + (aba === "cursos" ? "ativa" : "") + '">Cursos</a>' : "") +
           "</nav>" +
@@ -145,6 +146,7 @@
 
     carregar().then(function (d) {
       if (location.hash !== hash || !document.body.contains(el)) return; // a pessoa já mudou de página
+      if (aba === "provas") return Conta.ehConselho() ? renderProvas(el, d) : semAcesso();
       if (aba === "equipe" && Conta.ehConselho()) renderEquipe(el, d);
       else if (aba === "pessoa" && partes[1]) renderPessoa(el, d, partes[1]);
       else renderPessoas(el, d);
@@ -723,6 +725,99 @@
           });
         });
       });
+    });
+  }
+
+  /* ---------- Aba: Provas — resultados e liberação de nova tentativa (conselho/admin) ---------- */
+  var filtroProvas = "pendentes";
+
+  function renderProvas(el, d) {
+    el.innerHTML = '<p class="painel-carregando">Carregando…</p>';
+    Promise.all([
+      Conta.cliente.from("tentativas").select("id, usuario_id, curso_id, iniciada_em, enviada_em, nota, aprovado").order("iniciada_em", { ascending: false }),
+      Conta.cliente.from("liberacoes_prova").select("usuario_id, curso_id, usada_em, liberado_em")
+    ]).then(function (r) {
+      if (!document.body.contains(el)) return;
+      if (r[0].error) { el.innerHTML = '<p class="painel-vazio">As provas ainda não estão disponíveis. Rode o script supabase/09-provas-e-certificados.sql no Supabase.</p>'; return; }
+      var liberacoes = r[1].error ? [] : r[1].data;
+
+      // Uma linha por pessoa + curso, com a tentativa mais recente
+      var porChave = {};
+      r[0].data.forEach(function (t) {
+        var k = t.usuario_id + "|" + t.curso_id;
+        (porChave[k] = porChave[k] || []).push(t);
+      });
+      var linhas = Object.keys(porChave).map(function (k) {
+        var ts = porChave[k];
+        var ultima = ts[0];
+        var aprovado = ts.some(function (t) { return t.aprovado; });
+        var pendente = liberacoes.some(function (l) { return l.usuario_id === ultima.usuario_id && l.curso_id === ultima.curso_id && !l.usada_em; });
+        var situacao = aprovado ? "aprovado" : !ultima.enviada_em ? "andamento" : pendente ? "liberada" : "reprovado";
+        var pessoa = d.pessoas.filter(function (p) { return p.id === ultima.usuario_id; })[0] || {};
+        return { ultima: ultima, situacao: situacao, tentativas: ts.filter(function (t) { return t.enviada_em; }).length, pessoa: pessoa };
+      });
+      var conta = function (s) { return linhas.filter(function (l) { return l.situacao === s; }).length; };
+
+      el.innerHTML =
+        '<div class="estatisticas">' +
+          '<div class="estatistica"><strong>' + conta("reprovado") + "</strong><span>reprovados aguardando decisão</span></div>" +
+          '<div class="estatistica"><strong>' + conta("aprovado") + "</strong><span>aprovados (certificado emitido)</span></div>" +
+          '<div class="estatistica"><strong>' + conta("andamento") + "</strong><span>provas em andamento</span></div>" +
+        "</div>" +
+        '<div class="filtros filtros-cursos"><select id="provas-filtro" aria-label="Situação">' +
+          '<option value="pendentes">Reprovados aguardando decisão</option><option value="">Todas</option>' +
+          '<option value="aprovado">Aprovados</option><option value="andamento">Em andamento</option><option value="liberada">Nova tentativa liberada</option>' +
+        "</select></div>" +
+        '<div class="lista-topo"><span id="contagem-provas"></span></div>' +
+        '<div class="lista-duvidas" id="lista-provas"></div>';
+
+      var sel = document.getElementById("provas-filtro");
+      sel.value = filtroProvas;
+      var ROTULO = { aprovado: ["Aprovado(a)", "estado-aberto"], reprovado: ["Reprovado(a)", "estado-oculto"], andamento: ["Em andamento", "estado-agendado"], liberada: ["Nova tentativa liberada", "estado-agendado"] };
+
+      function desenhar() {
+        filtroProvas = sel.value;
+        var lista = linhas.filter(function (l) { return sel.value === "pendentes" ? l.situacao === "reprovado" : !sel.value || l.situacao === sel.value; });
+        document.getElementById("contagem-provas").textContent = C.plural(lista.length, "resultado", "resultados");
+        document.getElementById("lista-provas").innerHTML = lista.length
+          ? lista.map(function (l) {
+              var t = l.ultima, rot = ROTULO[l.situacao];
+              return '<div class="linha-duvida">' +
+                '<span class="linha-duvida-info">' +
+                  '<small class="suave">' + esc(tituloCurso(t.curso_id)) + "</small>" +
+                  '<strong><a href="#/painel/pessoa/' + esc(t.usuario_id) + '">' + esc(l.pessoa.nome_completo || l.pessoa.email || "Aluno") + "</a></strong>" +
+                  '<small class="suave">' + (t.enviada_em ? "Nota " + t.nota + "% · enviada em " + data(t.enviada_em) : "Começou em " + data(t.iniciada_em)) +
+                    " · " + C.plural(l.tentativas, "tentativa", "tentativas") + "</small>" +
+                "</span>" +
+                '<span class="estado ' + rot[1] + '">' + rot[0] + "</span>" +
+                (l.situacao === "reprovado"
+                  ? '<button type="button" class="botao botao-secundario botao-pequeno" data-liberar="' + esc(t.usuario_id) + '" data-curso="' + esc(t.curso_id) + '">Liberar nova tentativa</button>'
+                  : "") +
+              "</div>";
+            }).join("")
+          : '<p class="painel-vazio">' + (sel.value === "pendentes" ? "Nenhum reprovado aguardando decisão." : "Nenhum resultado.") + "</p>";
+
+        document.querySelectorAll("[data-liberar]").forEach(function (b) {
+          b.addEventListener("click", function () {
+            var nome = (d.pessoas.filter(function (p) { return p.id === b.dataset.liberar; })[0] || {}).nome_completo || "esta pessoa";
+            C.confirmar({
+              titulo: "Liberar nova tentativa?",
+              texto: "<strong>" + esc(nome) + "</strong> poderá fazer de novo a prova de <strong>" + esc(tituloCurso(b.dataset.curso)) + "</strong> (uma tentativa).",
+              sim: "Liberar", nao: "Cancelar"
+            }).then(function (sim) {
+              if (!sim) return;
+              b.disabled = true;
+              Conta.cliente.rpc("liberar_nova_tentativa", { p_usuario: b.dataset.liberar, p_curso: b.dataset.curso, p_motivo: null }).then(function (res) {
+                if (res.error) { b.disabled = false; return C.aviso(erroMsg(res.error), "erro"); }
+                C.aviso("Nova tentativa liberada.", "sucesso");
+                renderProvas(el, d);
+              });
+            });
+          });
+        });
+      }
+      sel.addEventListener("change", desenhar);
+      desenhar();
     });
   }
 
