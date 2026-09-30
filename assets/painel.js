@@ -483,6 +483,92 @@
     return caminho ? caminho.map(tituloCurso).join(" → ") : null;
   }
 
+  // Seletor de pré-requisitos: etiquetas removíveis + menu flutuante com busca.
+  // Funciona com qualquer quantidade de cursos.
+  function ligarSeletorPrereq(cartao, iniciais) {
+    var cursoId = cartao.dataset.curso;
+    var selecionados = iniciais.slice();
+    var chips = cartao.querySelector(".prereq-chips");
+    var botaoAbrir = cartao.querySelector("[data-abrir-prereq]");
+    var menu = cartao.querySelector(".prereq-menu");
+    var busca = cartao.querySelector(".prereq-busca");
+    var lista = cartao.querySelector(".prereq-lista");
+    var modo = cartao.querySelector(".prereq-modo");
+
+    function desenharChips() {
+      chips.innerHTML = selecionados.length
+        ? selecionados.map(function (id) {
+            return '<span class="prereq-chip">' + esc(tituloCurso(id)) +
+              '<button type="button" data-remover="' + esc(id) + '" aria-label="Remover ' + esc(tituloCurso(id)) + '">✕</button></span>';
+          }).join("")
+        : '<span class="suave" style="font-size:14px">Nenhum pré-requisito: qualquer pessoa pode fazer este curso.</span>';
+      modo.hidden = selecionados.length < 2; // "um ou todos" só faz sentido com 2 ou mais
+    }
+
+    function desenharLista() {
+      var termo = normalizar(busca.value.trim());
+      var opcoes = C.cursos.filter(function (c) {
+        return c.id !== cursoId && selecionados.indexOf(c.id) < 0 && (!termo || normalizar(c.titulo).indexOf(termo) >= 0);
+      });
+      lista.innerHTML = opcoes.length
+        ? opcoes.map(function (c) {
+            var ciclo = criaCiclo(cursoId, selecionados.concat(c.id));
+            return '<li role="option"><button type="button" data-adicionar="' + esc(c.id) + '"' + (ciclo ? " disabled" : "") + ">" +
+              "<span>" + esc(c.titulo) + "</span>" +
+              (ciclo ? "<small>Não pode: " + esc(c.titulo) + " já depende deste curso</small>" : "") +
+            "</button></li>";
+          }).join("")
+        : '<li class="prereq-vazio">' + (termo ? "Nenhum curso encontrado." : "Todos os cursos já foram adicionados.") + "</li>";
+    }
+
+    function abrir() {
+      menu.hidden = false;
+      botaoAbrir.setAttribute("aria-expanded", "true");
+      busca.value = "";
+      desenharLista();
+      busca.focus();
+      document.addEventListener("mousedown", cliqueFora);
+    }
+    function fechar() {
+      menu.hidden = true;
+      botaoAbrir.setAttribute("aria-expanded", "false");
+      document.removeEventListener("mousedown", cliqueFora);
+    }
+    function cliqueFora(ev) {
+      if (!menu.contains(ev.target) && ev.target !== botaoAbrir) fechar();
+    }
+    function adicionar(id) {
+      selecionados.push(id);
+      desenharChips();
+      fechar();
+      botaoAbrir.focus();
+    }
+
+    botaoAbrir.addEventListener("click", function () { menu.hidden ? abrir() : fechar(); });
+    busca.addEventListener("input", desenharLista);
+    busca.addEventListener("keydown", function (ev) {
+      if (ev.key === "Escape") { fechar(); botaoAbrir.focus(); }
+      if (ev.key === "Enter") { // Enter adiciona o primeiro da lista
+        ev.preventDefault();
+        var primeiro = lista.querySelector("[data-adicionar]:not([disabled])");
+        if (primeiro) adicionar(primeiro.getAttribute("data-adicionar"));
+      }
+    });
+    lista.addEventListener("click", function (ev) {
+      var b = ev.target.closest("[data-adicionar]");
+      if (b && !b.disabled) adicionar(b.getAttribute("data-adicionar"));
+    });
+    chips.addEventListener("click", function (ev) {
+      var b = ev.target.closest("[data-remover]");
+      if (!b) return;
+      selecionados = selecionados.filter(function (id) { return id !== b.getAttribute("data-remover"); });
+      desenharChips();
+    });
+
+    desenharChips();
+    return { valores: function () { return selecionados.slice(); } };
+  }
+
   function renderCursos(el) {
     el.innerHTML =
       '<div class="aviso-em-breve">' + C.icone.info +
@@ -508,14 +594,18 @@
               '<label class="campo"><span class="campo-rotulo">Abrir as aulas a partir de</span><input type="date" data-campo="abre" value="' + paraCampoData(cfg.abre_em) + '"></label>' +
               '<label class="campo"><span class="campo-rotulo">Esconder do site depois de</span><input type="date" data-campo="fecha" value="' + paraCampoData(cfg.fecha_em) + '"></label>' +
             "</div>" +
-            '<fieldset class="campo"><legend class="campo-rotulo">Pré-requisitos</legend>' +
-              '<div class="prereq-opcoes">' + C.cursos.filter(function (o) { return o.id !== curso.id; }).map(function (o) {
-                var marcado = (cfg.prerequisitos || []).indexOf(o.id) >= 0;
-                return '<label class="opcao"><input type="checkbox" data-prereq="' + esc(o.id) + '"' + (marcado ? " checked" : "") + "><span>" + esc(o.titulo) + "</span></label>";
-              }).join("") + "</div>" +
-              '<div class="prereq-modo">' +
-                '<label class="opcao"><input type="radio" name="modo-' + esc(curso.id) + '" value="qualquer"' + (cfg.prerequisito_modo !== "todos" ? " checked" : "") + "><span>Basta concluir <strong>um</strong> dos marcados</span></label>" +
-                '<label class="opcao"><input type="radio" name="modo-' + esc(curso.id) + '" value="todos"' + (cfg.prerequisito_modo === "todos" ? " checked" : "") + "><span>Precisa concluir <strong>todos</strong> os marcados</span></label>" +
+            '<fieldset class="campo campo-prereq"><legend class="campo-rotulo">Pré-requisitos</legend>' +
+              '<div class="prereq-chips"></div>' +
+              '<div class="prereq-adicionar">' +
+                '<button type="button" class="botao botao-secundario botao-pequeno" data-abrir-prereq aria-haspopup="listbox" aria-expanded="false">+ Adicionar pré-requisito</button>' +
+                '<div class="prereq-menu" hidden>' +
+                  '<input type="search" class="prereq-busca" placeholder="Buscar curso pelo nome…" aria-label="Buscar curso">' +
+                  '<ul class="prereq-lista" role="listbox"></ul>' +
+                "</div>" +
+              "</div>" +
+              '<div class="prereq-modo" hidden>' +
+                '<label class="opcao"><input type="radio" name="modo-' + esc(curso.id) + '" value="qualquer"' + (cfg.prerequisito_modo !== "todos" ? " checked" : "") + "><span>Basta concluir <strong>um</strong> deles</span></label>" +
+                '<label class="opcao"><input type="radio" name="modo-' + esc(curso.id) + '" value="todos"' + (cfg.prerequisito_modo === "todos" ? " checked" : "") + "><span>Precisa concluir <strong>todos</strong></span></label>" +
               "</div>" +
             "</fieldset>" +
             '<div class="curso-config-acoes"><button class="botao botao-principal botao-pequeno" type="button" data-salvar>Salvar</button>' +
@@ -528,6 +618,9 @@
     el.querySelectorAll(".curso-config").forEach(function (cartao) {
       var botao = cartao.querySelector("[data-salvar]");
       var msg = cartao.querySelector(".mensagem");
+      var cfgAtual = C.configDoCurso(cartao.dataset.curso) || {};
+      var selecionados = (cfgAtual.prerequisitos || []).filter(function (id) { return curso(id); });
+      var seletor = ligarSeletorPrereq(cartao, selecionados);
       botao.addEventListener("click", function () {
         var abre = cartao.querySelector('[data-campo="abre"]').value;
         var fecha = cartao.querySelector('[data-campo="fecha"]').value;
@@ -539,7 +632,7 @@
           return;
         }
         var cursoId = cartao.dataset.curso;
-        var prereqs = Array.prototype.map.call(cartao.querySelectorAll("[data-prereq]:checked"), function (i) { return i.dataset.prereq; });
+        var prereqs = seletor.valores();
         var ciclo = criaCiclo(cursoId, prereqs);
         if (ciclo) {
           msg.className = "mensagem erro";

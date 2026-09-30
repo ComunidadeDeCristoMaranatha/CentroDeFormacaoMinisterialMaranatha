@@ -680,3 +680,35 @@ a.linha-pessoa:hover { background: var(--superficie-2); }
   .card-andamento { flex-wrap: wrap; }
   .card-andamento .botao { width: 100%; }
 }
+
+/* ============================================================
+   SELETOR DE PRÉ-REQUISITOS (etiquetas + menu flutuante com busca)
+   ============================================================ */
+.prereq-chips { display: flex; flex-wrap: wrap; gap: 8px; min-height: 34px; align-items: center; }
+.prereq-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 6px 5px 12px; border-radius: 999px;
+  background: var(--gradiente-suave); border: 1px solid rgba(247,134,28,.5); font-size: 14px; color: var(--texto);
+}
+.prereq-chip button {
+  width: 22px; height: 22px; border-radius: 50%; border: 0; cursor: pointer; font-size: 11px;
+  background: rgba(255,255,255,.08); color: var(--texto-suave); display: grid; place-items: center;
+}
+.prereq-chip button:hover { background: rgba(255,143,122,.25); color: #fff; }
+.prereq-adicionar { position: relative; margin-top: 10px; }
+.prereq-menu {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 30; width: min(380px, calc(100vw - 48px));
+  background: var(--superficie-2); border: 1px solid var(--borda); border-radius: var(--raio-p);
+  box-shadow: 0 16px 40px rgba(0,0,0,.5); padding: 8px;
+}
+.prereq-menu[hidden] { display: none; }
+.formulario .prereq-busca { margin-bottom: 6px; }
+.prereq-lista { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto; }
+.prereq-lista button {
+  width: 100%; text-align: left; background: none; border: 0; color: var(--texto); font: inherit; font-size: 15px;
+  padding: 9px 10px; border-radius: 8px; cursor: pointer; display: grid; gap: 2px;
+}
+.prereq-lista button:hover:not([disabled]), .prereq-lista button:focus-visible { background: var(--superficie); outline: none; }
+.prereq-lista button[disabled] { color: var(--texto-suave); cursor: not-allowed; }
+.prereq-lista small { font-size: 12px; color: #ff8f7a; }
+.prereq-vazio { padding: 10px; color: var(--texto-suave); font-size: 14px; }
+.prereq-modo[hidden] { display: none; }
