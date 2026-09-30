@@ -107,6 +107,7 @@
         '<div class="painel-barra">' +
           '<nav class="abas-painel">' +
             '<a href="#/painel" class="' + (aba === "pessoas" || aba === "pessoa" ? "ativa" : "") + '">Pessoas</a>' +
+            '<a href="#/painel/duvidas" class="' + (aba === "duvidas" ? "ativa" : "") + '">Dúvidas</a>' +
             (Conta.ehConselho() ? '<a href="#/painel/equipe" class="' + (aba === "equipe" ? "ativa" : "") + '">Equipe</a>' : "") +
             (Conta.ehAdmin() ? '<a href="#/painel/cursos" class="' + (aba === "cursos" ? "ativa" : "") + '">Cursos</a>' : "") +
           "</nav>" +
@@ -122,6 +123,13 @@
 
     var hash = location.hash;
     var el = document.getElementById("painel-conteudo");
+
+    // A aba Dúvidas também não precisa da lista de pessoas
+    if (aba === "duvidas") {
+      renderDuvidas(el);
+      window.scrollTo(0, 0);
+      return;
+    }
 
     // A aba Cursos não precisa da lista de pessoas
     if (aba === "cursos") {
@@ -716,6 +724,85 @@
         });
       });
     });
+  }
+
+  /* ---------- Aba: Dúvidas — perguntas dos alunos, sem resposta primeiro ---------- */
+  var filtroDuvidas = { status: "sem", curso: "" };
+
+  function tituloAula(cursoId, aulaId) {
+    var c = curso(cursoId);
+    var a = c ? C.todasAulas(c).filter(function (x) { return x.aula.id === aulaId; })[0] : null;
+    return a ? a.aula.titulo : aulaId;
+  }
+
+  function renderDuvidas(el) {
+    // Conselho/admin veem as dúvidas de todos os cursos; professor/tutor, só dos seus
+    var meusCursos = Conta.ehConselho() ? null : (Conta.estado.equipe || []).map(function (e) { return e.curso_id; });
+    el.innerHTML = '<p class="painel-carregando">Carregando…</p>';
+    Conta.cliente.from("duvidas")
+      .select("id, curso_id, aula_id, autor_nome, texto, criado_em, respostas(id)")
+      .order("criado_em", { ascending: false })
+      .limit(500)
+      .then(function (r) {
+        if (!document.body.contains(el)) return;
+        if (r.error) { el.innerHTML = '<p class="painel-vazio">As dúvidas ainda não estão disponíveis. Rode o script supabase/07-anotacoes-e-duvidas.sql no Supabase.</p>'; return; }
+        var todas = r.data.filter(function (d) { return !meusCursos || meusCursos.indexOf(d.curso_id) >= 0; });
+        var cursosComDuvida = C.cursos.filter(function (c) { return todas.some(function (d) { return d.curso_id === c.id; }); });
+        var semResposta = todas.filter(function (d) { return !d.respostas.length; }).length;
+
+        el.innerHTML =
+          '<div class="estatisticas">' +
+            '<div class="estatistica"><strong>' + semResposta + "</strong><span>" + (semResposta === 1 ? "pergunta sem resposta" : "perguntas sem resposta") + "</span></div>" +
+            '<div class="estatistica"><strong>' + todas.length + "</strong><span>perguntas no total</span></div>" +
+          "</div>" +
+          (meusCursos && !meusCursos.length ? '<p class="painel-vazio">Você ainda não é professor(a) ou tutor(a) de nenhum curso.</p>' : "") +
+          '<div class="filtros filtros-cursos">' +
+            '<select id="duvidas-status" aria-label="Situação"><option value="sem">Sem resposta</option><option value="">Todas</option><option value="com">Respondidas</option></select>' +
+            '<select id="duvidas-curso" aria-label="Curso"><option value="">Todos os cursos</option>' +
+              cursosComDuvida.map(function (c) { return '<option value="' + esc(c.id) + '">' + esc(c.titulo) + "</option>"; }).join("") +
+            "</select>" +
+          "</div>" +
+          '<div class="lista-topo"><span id="contagem-duvidas"></span></div>' +
+          '<div class="lista-duvidas" id="lista-duvidas"></div>';
+
+        var selStatus = document.getElementById("duvidas-status");
+        var selCurso = document.getElementById("duvidas-curso");
+        selStatus.value = filtroDuvidas.status;
+        selCurso.value = filtroDuvidas.curso;
+
+        function desenhar() {
+          filtroDuvidas.status = selStatus.value;
+          filtroDuvidas.curso = selCurso.value;
+          // Sem resposta primeiro; dentro de cada grupo, as mais antigas primeiro (quem espera há mais tempo)
+          var lista = todas.filter(function (d) {
+            var respondida = d.respostas.length > 0;
+            return (!selCurso.value || d.curso_id === selCurso.value) &&
+              (selStatus.value === "sem" ? !respondida : selStatus.value === "com" ? respondida : true);
+          }).sort(function (a, b) {
+            var ra = a.respostas.length > 0, rb = b.respostas.length > 0;
+            if (ra !== rb) return ra ? 1 : -1;
+            return ra ? Date.parse(b.criado_em) - Date.parse(a.criado_em) : Date.parse(a.criado_em) - Date.parse(b.criado_em);
+          });
+          document.getElementById("contagem-duvidas").textContent = C.plural(lista.length, "pergunta", "perguntas");
+          document.getElementById("lista-duvidas").innerHTML = lista.length
+            ? lista.map(function (d) {
+                var respondida = d.respostas.length > 0;
+                return '<a class="linha-duvida" href="#/curso/' + esc(d.curso_id) + "/aula/" + esc(d.aula_id) + '/duvidas">' +
+                  '<span class="linha-duvida-info">' +
+                    '<small class="suave">' + esc(tituloCurso(d.curso_id)) + " · " + esc(tituloAula(d.curso_id, d.aula_id)) + "</small>" +
+                    "<strong>" + esc(d.texto.length > 180 ? d.texto.slice(0, 180) + "…" : d.texto) + "</strong>" +
+                    '<small class="suave">' + esc(d.autor_nome || "Aluno") + " · " + data(d.criado_em) + "</small>" +
+                  "</span>" +
+                  '<span class="estado ' + (respondida ? "estado-aberto" : "estado-agendado") + '">' +
+                    (respondida ? C.plural(d.respostas.length, "resposta", "respostas") : "Sem resposta") + "</span>" +
+                "</a>";
+              }).join("")
+            : '<p class="painel-vazio">' + (selStatus.value === "sem" ? "Nenhuma pergunta esperando resposta. 🙌" : "Nenhuma pergunta encontrada.") + "</p>";
+        }
+        selStatus.addEventListener("change", desenhar);
+        selCurso.addEventListener("change", desenhar);
+        desenhar();
+      });
   }
 
   /* ---------- Aba: Equipe ---------- */

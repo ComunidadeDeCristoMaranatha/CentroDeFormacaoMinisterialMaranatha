@@ -614,7 +614,7 @@
   }
 
   /* ---------- Página da aula ---------- */
-  function paginaAula(curso, aulaId) {
+  function paginaAula(curso, aulaId, abrirDuvidas) {
     if (!disponivel(curso)) { location.hash = "#/curso/" + curso.id; return; }
     var aulas = todasAulas(curso);
     var i = -1;
@@ -661,9 +661,11 @@
               ? '<a class="botao botao-principal" href="' + linkAula(seguinte) + '"><span>Próxima aula</span>' + icone.direita + "</a>"
               : '<a class="botao botao-principal" href="#/curso/' + esc(curso.id) + '"><span>Voltar ao curso</span>' + icone.direita + "</a>") +
           "</nav>" +
+          '<div id="aula-interacao" class="aula-interacao"></div>' + // anotações e dúvidas (assets/interacao.js)
         "</div>" +
         '<aside class="aula-lateral"><div class="cartao" id="lateral"></div></aside>' +
       "</div>";
+    if (window.Interacao) window.Interacao.montarNaAula(document.getElementById("aula-interacao"), curso, aula, abrirDuvidas);
 
     function atualizar() {
       var feito = concluida(curso.id, aula.id);
@@ -1074,6 +1076,7 @@
       '<div class="container curso-corpo">' +
         "<div>" +
           "<h2>Meus cursos</h2>" + '<div class="meus-cursos">' + meusCursos + "</div>" +
+          '<h2 style="margin-top:44px">Minhas anotações</h2>' + '<div id="minhas-anotacoes" class="minhas-anotacoes"></div>' +
           '<h2 style="margin-top:44px">Meus dados</h2>' +
           '<div class="cartao">' + formPerfil(p, "Salvar alterações") + "</div>" +
         "</div>" +
@@ -1088,6 +1091,7 @@
       "</div>";
 
     ligarFormPerfil(function () { aviso("Dados salvos.", "sucesso"); });
+    if (window.Interacao) window.Interacao.listarAnotacoes(document.getElementById("minhas-anotacoes"));
     ligarSair();
     document.getElementById("botao-excluir").addEventListener("click", function () {
       var ok = window.confirm("Tem certeza? Sua conta, seus dados e seu progresso serão apagados para sempre. Isso não pode ser desfeito.");
@@ -1119,6 +1123,8 @@
       { href: "#/painel", icone: icone.pessoa, titulo: Conta.ehConselho() ? "Pessoas" : "Meus alunos",
         texto: Conta.ehConselho() ? "Todos os cadastrados, com contato, progresso e planilha." : "Alunos dos cursos em que você atua e o progresso de cada um." }
     ];
+    atalhos.push({ href: "#/painel/duvidas", icone: icone.info, titulo: "Dúvidas dos alunos",
+      texto: Conta.ehConselho() ? "Perguntas feitas nas aulas, com as que ainda estão sem resposta primeiro." : "Perguntas feitas nas aulas dos seus cursos para você responder." });
     if (Conta.ehConselho()) atalhos.push({ href: "#/painel/equipe", icone: icone.escudo, titulo: "Equipe", texto: "Quem é da administração, do conselho e os professores e tutores de cada curso." });
     if (Conta.ehAdmin()) atalhos.push({ href: "#/painel/cursos", icone: icone.livro, titulo: "Cursos", texto: "Mostrar ou esconder cursos, datas de abertura e pré-requisitos." });
 
@@ -1186,7 +1192,9 @@
           "O Centro de Formação Ministerial Maranatha (CFM), ministério da Comunidade de Cristo Maranatha, respeita a sua privacidade e segue a Lei Geral de Proteção de Dados (LGPD).\n\n" +
           "## Quais dados coletamos\n" +
           "- Nome completo, e-mail, WhatsApp, cidade, estado e igreja que você frequenta\n" +
-          "- As aulas que você marcou como concluídas\n\n" +
+          "- As aulas que você marcou como concluídas e os cursos que você iniciou\n" +
+          "- Suas anotações nas aulas (**particulares**: só você vê)\n" +
+          "- As dúvidas que você envia nas aulas (ficam **visíveis para quem assiste àquela aula**, com seu primeiro nome e a inicial do sobrenome, ex.: Maria S.)\n\n" +
           "## Para que usamos\n" +
           "- Salvar seu progresso nos cursos\n" +
           "- Emitir certificados com o seu nome\n" +
@@ -1206,6 +1214,7 @@
     var partes = location.hash.replace(/^#\/?/, "").split("/").filter(Boolean).map(decodeURIComponent);
     var menu = "";
     atualizarPagina = null;
+    if (window.Interacao) window.Interacao.salvarPendente(); // não perder anotação ao trocar de página
 
     // Trocar de perfil (aluno / equipe) acontece pelo endereço aberto
     if (partes[0] === "painel" || (partes[0] === "minha-conta" && partes[1] === "equipe")) definirModo("equipe");
@@ -1224,7 +1233,7 @@
       menu = "cursos";
       var curso = CURSOS.filter(function (c) { return c.id === partes[1]; })[0];
       if (!curso) naoEncontrado();
-      else if (partes[2] === "aula" && partes[3]) paginaAula(curso, partes[3]);
+      else if (partes[2] === "aula" && partes[3]) paginaAula(curso, partes[3], partes[4] === "duvidas");
       else paginaCurso(curso);
     } else if (!partes[0] || partes[0] === "cursos" || partes[0] === "sobre") {
       menu = partes[0] || "inicio";
@@ -1266,7 +1275,12 @@
       if (Conta.estado.acaoUrl === "nova-senha" && Conta.estado.usuario) return irPara("#/nova-senha");
       if (Conta.estado.acabouDeEntrar) return aoEntrar();
       if (Conta.estado.erroUrl && !/^#\/(entrar|criar-conta|recuperar-senha)/.test(location.hash)) return irPara("#/entrar");
-      if (atualizarPagina) { atualizarPagina(); renderContaTopo(); return; }
+      if (atualizarPagina) {
+        atualizarPagina();
+        renderContaTopo();
+        if (window.Interacao) window.Interacao.remontar(); // agora sabemos se está logado
+        return;
+      }
       return rota();
     }
     if (evento === "entrou") return aoEntrar();
@@ -1290,7 +1304,7 @@
   window.CFM = {
     app: app, cursos: CURSOS, icone: icone,
     esc: esc, plural: plural, todasAulas: todasAulas, disponivel: disponivel, barraProgresso: barraProgresso,
-    chamaHero: chamaHero, aviso: aviso, traduzirErro: traduzirErro, irPara: irPara,
+    chamaHero: chamaHero, aviso: aviso, traduzirErro: traduzirErro, irPara: irPara, confirmar: confirmar,
     exigirLogin: exigirLogin, naoEncontrado: naoEncontrado, carregando: carregando,
     definirAtualizacao: function (fn) { atualizarPagina = fn; },
     temAulas: temAulas, situacao: situacao, dataCurta: dataCurta, textoPrerequisitos: textoPrerequisitos,
