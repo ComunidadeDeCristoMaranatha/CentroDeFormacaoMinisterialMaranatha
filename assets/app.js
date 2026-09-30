@@ -339,6 +339,35 @@
     "</" + tag + ">";
   }
 
+  /* ---------- "Continue de onde parou": cursos iniciados e ainda não concluídos ---------- */
+  function ultimaVisita(curso) {
+    var m = Conta.matricula(curso.id);
+    return m ? Date.parse(m.ultima_visita_em) : 0;
+  }
+  function cursosEmAndamento() {
+    return CURSOS.filter(function (c) { return temAulas(c) && visivelNoSite(c) && iniciou(c) && percentual(c) < 100; })
+      .sort(function (a, b) { return ultimaVisita(b) - ultimaVisita(a); });
+  }
+  function blocoEmAndamento() {
+    var cursos = cursosEmAndamento();
+    if (!cursos.length) return "";
+    return '<div class="bloco-andamento">' +
+      '<div class="secao-cabecalho"><span class="sobretitulo">Seus estudos</span><h2>Continue de onde parou</h2></div>' +
+      '<div class="grade-andamento">' + cursos.map(function (c) {
+        var aula = aulaParaContinuar(c);
+        return '<a class="card-andamento" href="#/curso/' + esc(c.id) + "/aula/" + esc(aula.id) + '">' +
+          '<span class="card-andamento-icone">' + icone.play + "</span>" +
+          '<span class="card-andamento-info">' +
+            "<strong>" + esc(c.titulo) + "</strong>" +
+            "<small>Continuar em: " + esc(aula.titulo) + "</small>" +
+            barraProgresso(percentual(c)) +
+          "</span>" +
+          '<span class="botao botao-principal botao-pequeno">Continuar</span>' +
+        "</a>";
+      }).join("") + "</div>" +
+    "</div>";
+  }
+
   /* ---------- Página inicial ---------- */
   function paginaInicio(ancora) {
     // Disponíveis primeiro, depois os que abrem em breve, depois os em preparação
@@ -364,6 +393,7 @@
       "</ul></div>" +
 
       '<section class="secao" id="cursos"><div class="container">' +
+        blocoEmAndamento() +
         '<div class="secao-cabecalho">' +
           '<span class="sobretitulo">Nossos cursos</span>' +
           "<h2>Escolha por onde começar</h2>" +
@@ -1018,9 +1048,8 @@
     var primeiro = (p.nome_completo || "").split(" ")[0];
 
     // Cursos iniciados, do visitado mais recentemente para o mais antigo
-    var visita = function (c) { var m = Conta.matricula(c.id); return m ? Date.parse(m.ultima_visita_em) : 0; };
     var emAndamento = CURSOS.filter(function (c) { return temAulas(c) && visivelNoSite(c) && iniciou(c); })
-      .sort(function (a, b) { return visita(b) - visita(a); });
+      .sort(function (a, b) { return ultimaVisita(b) - ultimaVisita(a); });
     var meusCursos = emAndamento.length
       ? emAndamento.map(function (c) {
           var pc = percentual(c);

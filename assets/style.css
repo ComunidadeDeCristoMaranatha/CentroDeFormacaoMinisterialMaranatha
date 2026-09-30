@@ -658,3 +658,25 @@ a.linha-pessoa:hover { background: var(--superficie-2); }
 }
 .faixa-iniciar svg { color: var(--amarelo); flex-shrink: 0; }
 .faixa-iniciar span { flex: 1; min-width: 200px; }
+
+/* ============================================================
+   "CONTINUE DE ONDE PAROU" (página inicial)
+   ============================================================ */
+.bloco-andamento { margin-bottom: 64px; padding-bottom: 56px; border-bottom: 1px solid var(--borda); }
+.grade-andamento { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px; }
+.card-andamento {
+  display: flex; align-items: center; gap: 16px; padding: 18px 20px; border-radius: var(--raio);
+  background: var(--superficie); border: 1px solid rgba(247,134,28,.45); color: var(--texto); text-decoration: none;
+  box-shadow: 0 0 0 1px rgba(247,134,28,.08), var(--sombra); transition: transform .2s, border-color .2s;
+}
+.card-andamento:hover { transform: translateY(-3px); border-color: var(--laranja); }
+.card-andamento-icone { width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; background: var(--gradiente); color: #1a0f08; }
+.card-andamento-info { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.card-andamento-info strong { font-family: var(--fonte-titulo); font-size: 20px; font-weight: 600; }
+.card-andamento-info small { color: var(--texto-suave); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-andamento-info .progresso { margin-top: 4px; }
+@media (max-width: 520px) {
+  .grade-andamento { grid-template-columns: 1fr; }
+  .card-andamento { flex-wrap: wrap; }
+  .card-andamento .botao { width: 100%; }
+}
