@@ -7,7 +7,7 @@
    internet, usa a última cópia guardada no aparelho.
    Login, dados (Supabase) e vídeos (YouTube) nunca são guardados.
    ============================================================ */
-var VERSAO = "cfm-v2";
+var VERSAO = "cfm-v3";
 var ESSENCIAIS = [
   "./",
   "index.html",

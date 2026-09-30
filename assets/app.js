@@ -175,7 +175,24 @@
     if (!Conta.estado.usuario) return { ok: false, motivo: "login" };
     var faltam = prerequisitosPendentes(curso);
     if (faltam.length) return { ok: false, motivo: "prerequisito", faltam: faltam };
+    if (aulasEmOrdem(curso) && !ehEquipeDoCurso(curso)) {
+      var aulas = todasAulas(curso);
+      var anterior = aulas[indice - 1];
+      if (aulas[indice] && !concluida(curso.id, aulas[indice].aula.id) && anterior && !concluida(curso.id, anterior.aula.id)) {
+        return { ok: false, motivo: "ordem", anterior: anterior.aula, indiceAnterior: indice - 1 };
+      }
+    }
     return { ok: true };
+  }
+  // Aulas em ordem: cada aula só abre depois de concluir a anterior (ligado por padrão; o admin desliga por curso)
+  function aulasEmOrdem(curso) {
+    var cfg = configCursos[curso.id];
+    return !cfg || cfg.aulas_em_ordem !== false;
+  }
+  // Conselho, admin e professor/tutor do curso veem todas as aulas para revisar o conteúdo
+  function ehEquipeDoCurso(curso) {
+    if (Conta.ehConselho()) return true;
+    return (Conta.estado.equipe || []).some(function (e) { return e.curso_id === curso.id; });
   }
   function proximaAula(curso) {
     var aulas = todasAulas(curso);
@@ -511,7 +528,7 @@
           var acesso = acessoAula(curso, indice++);
           var trancada = !acesso.ok && acesso.motivo !== "carregando";
           var conteudo = (trancada
-              ? '<span class="marcador trancado" title="' + (acesso.motivo === "login" ? "Crie sua conta para liberar" : "Conclua o pré-requisito para liberar") + '">' + icone.cadeado + "</span>"
+              ? '<span class="marcador trancado" title="' + (acesso.motivo === "login" ? "Crie sua conta para liberar" : acesso.motivo === "ordem" ? "Conclua a aula anterior para liberar" : "Conclua o pré-requisito para liberar") + '">' + icone.cadeado + "</span>"
               : '<span class="marcador' + (feito ? " feito" : "") + '">' + icone.check + "</span>") +
             '<span class="titulo-aula">' + esc(a.titulo) + "</span>" +
             (indice === 1 && Conta.ativo && Conta.estado.pronto && !Conta.estado.usuario ? '<span class="aula-livre">Aberta a todos</span>' : "") +
@@ -647,6 +664,12 @@
         "<p>A primeira aula de cada curso é aberta a todos. Para continuar estudando, crie sua conta gratuita. Leva menos de um minuto, e seu progresso fica salvo em qualquer aparelho.</p>" +
         '<div class="hero-acoes"><a class="botao botao-principal" href="#/criar-conta">Criar minha conta</a>' +
         '<a class="botao botao-secundario" href="#/entrar">Já tenho conta</a></div>';
+    } else if (acesso.motivo === "ordem") {
+      corpo = "<h2>Conclua a aula anterior</h2>" +
+        "<p>Neste curso as aulas seguem uma ordem. Para liberar esta aula, conclua antes a aula anterior" +
+        ": <strong>" + esc(acesso.anterior.titulo) + "</strong>.</p>" +
+        '<p class="suave">Ao terminar uma aula, clique em <strong>"Marcar como concluída"</strong>. A próxima é liberada na hora.</p>' +
+        '<div class="hero-acoes"><a class="botao botao-principal" href="#/curso/' + esc(curso.id) + "/aula/" + esc(acesso.anterior.id) + '">Ir para a aula anterior</a></div>';
     } else {
       var p = prerequisitosDe(curso);
       corpo = "<h2>Antes, conclua o pré-requisito</h2>" +

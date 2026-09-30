@@ -619,11 +619,13 @@
           '<summary class="curso-config-topo">' +
             "<div><h3>" + esc(curso.titulo) + "</h3><small class=\"suave\">" +
               (C.temAulas(curso) ? C.plural(qtd, "aula", "aulas") : "Sem aulas ainda — aparece como “Em breve”") +
-              (C.textoPrerequisitos(curso) ? " · Pré-requisito: " + esc(C.textoPrerequisitos(curso)) : "") + "</small></div>" +
+              (C.textoPrerequisitos(curso) ? " · Pré-requisito: " + esc(C.textoPrerequisitos(curso)) : "") +
+              (cfg.aulas_em_ordem === false ? " · Aulas em qualquer ordem" : "") + "</small></div>" +
             '<span class="curso-config-direita"><span class="estado ' + estado.classe + '">' + esc(estado.texto) + "</span>" + C.icone.seta + "</span>" +
           "</summary>" +
           '<div class="formulario">' +
             '<label class="opcao"><input type="checkbox" data-campo="visivel"' + (cfg.visivel ? " checked" : "") + "><span>Mostrar este curso no site</span></label>" +
+            '<label class="opcao"><input type="checkbox" data-campo="ordem"' + (cfg.aulas_em_ordem !== false ? " checked" : "") + "><span>Aulas em ordem: cada aula só abre depois de concluir a anterior</span></label>" +
             '<div class="campo-linha-2">' +
               '<label class="campo"><span class="campo-rotulo">Abrir as aulas a partir de</span><input type="date" data-campo="abre" value="' + paraCampoData(cfg.abre_em) + '"></label>' +
               '<label class="campo"><span class="campo-rotulo">Esconder do site depois de</span><input type="date" data-campo="fecha" value="' + paraCampoData(cfg.fecha_em) + '"></label>' +
@@ -712,6 +714,7 @@
         Conta.cliente.from("cursos_config").upsert({
           curso_id: cursoId,
           visivel: cartao.querySelector('[data-campo="visivel"]').checked,
+          aulas_em_ordem: cartao.querySelector('[data-campo="ordem"]').checked,
           abre_em: doCampoData(abre, false),
           fecha_em: doCampoData(fecha, true),
           prerequisitos: prereqs,
