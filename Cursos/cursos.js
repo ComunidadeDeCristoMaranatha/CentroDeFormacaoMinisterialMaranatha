@@ -591,12 +591,24 @@ Que o Espírito Santo te ilumine nessa jornada!`,
     id: "curso-de-batismo",
     titulo: "Curso de Batismo",
     resumo: "Preparação para quem deseja descer às águas e dar esse passo de fé.",
-    descricao: `Curso em preparação. Em breve, mais informações.`,
+    descricao: `Curso em preparação. **As aulas abaixo são apenas exemplos temporários**, para testar a plataforma, e serão substituídas pelo conteúdo real.`,
     professor: "",
     cargaHoraria: "",
-    status: "em-breve",
+    status: "disponivel",
     capa: "",
-    modulos: []
+    // ⚠️ AULAS DE EXEMPLO (temporárias) — apagar quando chegar o conteúdo real do curso
+    modulos: [
+      {
+        titulo: "Módulo 1 — Conteúdo de exemplo",
+        aulas: [
+          { id: "exemplo-1", titulo: "Aula 1 — Aula de exemplo", duracao: "", video: "", texto: `Esta é uma **aula de exemplo**, criada só para testar a plataforma. Ela será substituída pelo conteúdo real do Curso de Batismo.`, materiais: [] },
+          { id: "exemplo-2", titulo: "Aula 2 — Aula de exemplo", duracao: "", video: "", texto: `Esta é uma **aula de exemplo**, criada só para testar a plataforma. Ela será substituída pelo conteúdo real do Curso de Batismo.`, materiais: [] },
+          { id: "exemplo-3", titulo: "Aula 3 — Aula de exemplo", duracao: "", video: "", texto: `Esta é uma **aula de exemplo**, criada só para testar a plataforma. Ela será substituída pelo conteúdo real do Curso de Batismo.`, materiais: [] },
+          { id: "exemplo-4", titulo: "Aula 4 — Aula de exemplo", duracao: "", video: "", texto: `Esta é uma **aula de exemplo**, criada só para testar a plataforma. Ela será substituída pelo conteúdo real do Curso de Batismo.`, materiais: [] },
+          { id: "exemplo-5", titulo: "Aula 5 — Aula de exemplo", duracao: "", video: "", texto: `Esta é uma **aula de exemplo**, criada só para testar a plataforma. Ela será substituída pelo conteúdo real do Curso de Batismo.`, materiais: [] }
+        ]
+      }
+    ]
   },
   {
     id: "cosmovisao-biblica",
@@ -613,12 +625,24 @@ Que o Espírito Santo te ilumine nessa jornada!`,
     id: "escola-de-salmistas",
     titulo: "Escola de Salmistas",
     resumo: "Formação para quem serve ou deseja servir no ministério de louvor e adoração.",
-    descricao: `Curso em preparação. Em breve, mais informações.`,
+    descricao: `Curso em preparação. **As aulas abaixo são apenas exemplos temporários**, para testar a plataforma, e serão substituídas pelo conteúdo real.`,
     professor: "",
     cargaHoraria: "",
-    status: "em-breve",
+    status: "disponivel",
     capa: "",
-    modulos: []
+    // ⚠️ AULAS DE EXEMPLO (temporárias) — apagar quando chegar o conteúdo real do curso
+    modulos: [
+      {
+        titulo: "Módulo 1 — Conteúdo de exemplo",
+        aulas: [
+          { id: "exemplo-1", titulo: "Aula 1 — Aula de exemplo", duracao: "", video: "", texto: `Esta é uma **aula de exemplo**, criada só para testar a plataforma. Ela será substituída pelo conteúdo real da Escola de Salmistas.`, materiais: [] },
+          { id: "exemplo-2", titulo: "Aula 2 — Aula de exemplo", duracao: "", video: "", texto: `Esta é uma **aula de exemplo**, criada só para testar a plataforma. Ela será substituída pelo conteúdo real da Escola de Salmistas.`, materiais: [] },
+          { id: "exemplo-3", titulo: "Aula 3 — Aula de exemplo", duracao: "", video: "", texto: `Esta é uma **aula de exemplo**, criada só para testar a plataforma. Ela será substituída pelo conteúdo real da Escola de Salmistas.`, materiais: [] },
+          { id: "exemplo-4", titulo: "Aula 4 — Aula de exemplo", duracao: "", video: "", texto: `Esta é uma **aula de exemplo**, criada só para testar a plataforma. Ela será substituída pelo conteúdo real da Escola de Salmistas.`, materiais: [] },
+          { id: "exemplo-5", titulo: "Aula 5 — Aula de exemplo", duracao: "", video: "", texto: `Esta é uma **aula de exemplo**, criada só para testar a plataforma. Ela será substituída pelo conteúdo real da Escola de Salmistas.`, materiais: [] }
+        ]
+      }
+    ]
   }
 
 ];
