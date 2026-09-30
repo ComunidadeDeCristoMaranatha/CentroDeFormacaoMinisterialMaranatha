@@ -908,7 +908,7 @@
   function paginaEntrar(modo) {
     if (!Conta.ativo) return naoEncontrado();
     if (!Conta.estado.pronto) return carregando();
-    if (Conta.estado.usuario) return irPara("#/minha-conta");
+    if (Conta.estado.usuario) return irPara("#/");
 
     var abas = '<div class="abas" role="tablist">' +
       '<a role="tab" href="#/entrar" class="' + (modo === "entrar" ? "ativa" : "") + '">Entrar</a>' +
@@ -1064,7 +1064,7 @@
     "</div></div>";
     ligarFormPerfil(function () {
       aviso("Cadastro concluído. Bem-vindo(a)!", "sucesso");
-      irPara(Conta.pegarDestino() || "#/minha-conta");
+      irPara(Conta.pegarDestino() || "#/");
     });
     window.scrollTo(0, 0);
   }
@@ -1348,7 +1348,7 @@
   });
 
   function aoEntrar() {
-    var destino = Conta.pegarDestino() || "#/minha-conta";
+    var destino = Conta.pegarDestino() || "#/"; // depois de entrar: página inicial (ou de volta à aula em que estava)
     if (Conta.estado.perfil && !Conta.perfilCompleto()) {
       Conta.lembrarDestino(destino);
       return irPara("#/cadastro");
