@@ -804,3 +804,12 @@ a.linha-pessoa:hover { background: var(--superficie-2); }
 .linha-duvida-info { flex: 1; min-width: 0; display: grid; gap: 3px; }
 .linha-duvida-info strong { font-weight: 500; font-size: 15px; }
 .linha-duvida .estado { flex-shrink: 0; }
+
+/* ============================================================
+   BLOCOS DE CURSOS NA PÁGINA INICIAL
+   ============================================================ */
+.bloco-cursos + .bloco-cursos { margin-top: 64px; padding-top: 56px; border-top: 1px solid var(--borda); }
+.bloco-em-breve .grade-cursos { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.bloco-em-breve .card-capa { aspect-ratio: 16 / 7; }
+.bloco-em-breve .card-capa-titulo { font-size: 22px; }
+.etiqueta.com-prereq { background: rgba(15,13,12,.8); color: var(--amarelo); border: 1px solid rgba(251,176,59,.6); }

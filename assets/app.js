@@ -343,6 +343,7 @@
     if (s === "encerrado") return { texto: "Encerrado", classe: "oculto" };
     if (!temAulas(curso)) return { texto: "Em breve", classe: "" };
     if (s === "agendado") return { texto: "Abre em " + dataCurta(c.abre_em), classe: "agendado" };
+    if (prerequisitosPendentes(curso).length) return { texto: "Com pré-requisito", classe: "com-prereq" };
     return { texto: "Disponível", classe: "disponivel" };
   }
 
@@ -403,10 +404,31 @@
   }
 
   /* ---------- Página inicial ---------- */
+  // Em qual bloco o curso aparece (depende de cada visitante: quem cumpriu o pré-requisito
+  // vê o curso "subir" de Próximos passos para Cursos disponíveis)
+  function grupoDoCurso(c) {
+    if (!temAulas(c) || situacao(c) === "agendado") return "embreve";
+    if (prerequisitosPendentes(c).length) return "proximos";
+    return "disponiveis";
+  }
+  function blocoCursos(sobretitulo, titulo, texto, lista, extra) {
+    if (!lista.length) return "";
+    return '<div class="bloco-cursos ' + (extra || "") + '">' +
+      '<div class="secao-cabecalho"><span class="sobretitulo">' + sobretitulo + "</span><h2>" + titulo + "</h2><p>" + texto + "</p></div>" +
+      '<div class="grade-cursos">' + lista.map(cardCurso).join("") + "</div>" +
+    "</div>";
+  }
+
   function paginaInicio(ancora) {
-    // Disponíveis primeiro, depois os que abrem em breve, depois os em preparação
-    var peso = function (c) { return disponivel(c) ? 2 : temAulas(c) ? 1 : 0; };
-    var ordenados = CURSOS.filter(visivelNoSite).sort(function (a, b) { return peso(b) - peso(a); });
+    var visiveis = CURSOS.filter(visivelNoSite);
+    var grupo = function (g) { return visiveis.filter(function (c) { return grupoDoCurso(c) === g; }); };
+    var blocos =
+      blocoCursos("Comece por aqui", "Cursos disponíveis",
+        "Cursos abertos para você começar agora. A apresentação de cada curso é aberta a todos.", grupo("disponiveis")) +
+      blocoCursos("Sua caminhada", "Próximos passos",
+        "Para continuar crescendo depois dos primeiros cursos. Cada um mostra o que você precisa concluir antes.", grupo("proximos")) +
+      blocoCursos("Em preparação", "Em breve",
+        "Cursos que estão sendo preparados ou que abrem em breve. Volte sempre para conferir as novidades.", grupo("embreve"), "bloco-em-breve");
     app.innerHTML =
       '<section class="hero">' + chamaHero() + chamaHero("hero-chama-2") +
         '<div class="hero-inner">' +
@@ -428,14 +450,8 @@
 
       '<section class="secao" id="cursos"><div class="container">' +
         blocoEmAndamento() +
-        '<div class="secao-cabecalho">' +
-          '<span class="sobretitulo">Nossos cursos</span>' +
-          "<h2>Escolha por onde começar</h2>" +
-          "<p>Novos cursos e aulas são adicionados aos poucos. Volte sempre para conferir as novidades.</p>" +
-        "</div>" +
-        (ordenados.length
-          ? '<div class="grade-cursos">' + ordenados.map(cardCurso).join("") + "</div>"
-          : '<p class="bloco-texto">Os primeiros cursos estão sendo preparados. Em breve!</p>') +
+        (blocos || '<div class="secao-cabecalho"><span class="sobretitulo">Nossos cursos</span><h2>Em breve</h2>' +
+          "<p>Os primeiros cursos estão sendo preparados. Volte sempre para conferir as novidades.</p></div>") +
       "</div></section>" +
 
       '<section class="secao secao-alt"><div class="container">' +
