@@ -152,11 +152,64 @@
     }
     return proximaAula(curso);
   }
-  // Registra a matrícula ao abrir a aula (se a conta ainda está carregando, registra quando terminar)
+  // Ao abrir uma aula, atualiza a "última aula visitada" — só para quem JÁ iniciou o curso.
+  // Iniciar o curso exige confirmação do aluno (ver iniciarCurso).
+  // Se a conta ainda está carregando, decide quando terminar.
   var visitaPendente = null;
-  function registrarVisita(cursoId, aulaId) {
-    if (Conta.ativo && !Conta.estado.pronto) { visitaPendente = [cursoId, aulaId]; return; }
-    Conta.registrarVisita(cursoId, aulaId);
+  function registrarVisita(curso, aulaId) {
+    if (Conta.ativo && !Conta.estado.pronto) { visitaPendente = [curso, aulaId]; return; }
+    if (iniciou(curso)) Conta.registrarVisita(curso.id, aulaId);
+  }
+
+  /* ---------- Janela de confirmação (Sim / Não) ---------- */
+  function confirmar(opcoes) {
+    return new Promise(function (resolver) {
+      var fundo = document.createElement("div");
+      fundo.className = "modal-fundo";
+      fundo.innerHTML =
+        '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">' +
+          (opcoes.icone ? '<span class="modal-icone">' + opcoes.icone + "</span>" : "") +
+          '<h2 id="modal-titulo">' + esc(opcoes.titulo) + "</h2>" +
+          "<p>" + opcoes.texto + "</p>" +
+          '<div class="modal-acoes">' +
+            '<button type="button" class="botao botao-secundario" data-resposta="nao">' + esc(opcoes.nao || "Cancelar") + "</button>" +
+            '<button type="button" class="botao botao-principal" data-resposta="sim">' + esc(opcoes.sim || "Sim") + "</button>" +
+          "</div>" +
+        "</div>";
+      function fechar(resposta) {
+        document.removeEventListener("keydown", tecla);
+        fundo.remove();
+        resolver(resposta);
+      }
+      function tecla(ev) { if (ev.key === "Escape") fechar(false); }
+      fundo.addEventListener("click", function (ev) {
+        if (ev.target === fundo) return fechar(false);
+        var botao = ev.target.closest("[data-resposta]");
+        if (botao) fechar(botao.getAttribute("data-resposta") === "sim");
+      });
+      document.addEventListener("keydown", tecla);
+      document.body.appendChild(fundo);
+      fundo.querySelector('[data-resposta="sim"]').focus();
+    });
+  }
+
+  // Pergunta se o aluno quer iniciar o curso; só registra a matrícula se ele disser SIM
+  function iniciarCurso(curso, aula) {
+    var semConta = Conta.ativo && !Conta.estado.usuario;
+    return confirmar({
+      icone: icone.play,
+      titulo: "Iniciar este curso?",
+      texto: "Você está iniciando o curso <strong>" + esc(curso.titulo) + "</strong>. Ele vai aparecer em “Meus cursos” e o seu progresso passará a ser acompanhado." +
+        (semConta ? "<br><br><small>Sem conta, o progresso fica salvo só neste aparelho. Crie sua conta gratuita para liberar todas as aulas.</small>" : ""),
+      sim: "Sim, iniciar",
+      nao: "Agora não"
+    }).then(function (sim) {
+      if (sim) {
+        Conta.registrarVisita(curso.id, aula.id);
+        aviso("Curso iniciado. Bons estudos!", "sucesso");
+      }
+      return sim;
+    });
   }
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -430,7 +483,7 @@
             (curso.cargaHoraria ? "<span>" + icone.relogio + esc(curso.cargaHoraria) + "</span>" : "") +
           "</div>" +
           (ok && prox
-            ? '<div class="curso-acoes"><a class="botao botao-claro" href="#/curso/' + esc(curso.id) + "/aula/" + esc(prox.id) + '">' + icone.play + textoBotao + "</a>" + barraProgresso(p) + "</div>"
+            ? '<div class="curso-acoes"><a class="botao botao-claro" id="botao-comecar" href="#/curso/' + esc(curso.id) + "/aula/" + esc(prox.id) + '">' + icone.play + textoBotao + "</a>" + barraProgresso(p) + "</div>"
             : '<span class="selo">' + (s === "agendado" && temAulas(curso) ? "Abre em " + dataCurta(cfg.abre_em) : "Em breve") + "</span>") +
         "</div>" +
       "</section>" +
@@ -450,6 +503,15 @@
             : "") +
         "</aside>" +
       "</div>";
+
+    // Quem ainda não iniciou precisa confirmar antes de começar
+    var botaoComecar = document.getElementById("botao-comecar");
+    if (botaoComecar && !comecou) {
+      botaoComecar.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        iniciarCurso(curso, prox).then(function (sim) { if (sim) irPara(botaoComecar.getAttribute("href")); });
+      });
+    }
     window.scrollTo(0, 0);
   }
 
@@ -532,7 +594,7 @@
     var acesso = acessoAula(curso, i);
     if (!acesso.ok) return acesso.motivo === "carregando" ? carregando() : aulaTrancada(curso, aulas, i, acesso);
 
-    registrarVisita(curso.id, aulas[i].aula.id);
+    registrarVisita(curso, aulas[i].aula.id);
 
     var atual = aulas[i];
     var aula = atual.aula;
@@ -550,6 +612,7 @@
       '<div class="container aula-layout">' +
         "<div>" +
           '<nav class="trilha" aria-label="Você está em"><a href="#/">Início</a> › <a href="#/curso/' + esc(curso.id) + '">' + esc(curso.titulo) + "</a> › <span>Aula " + (i + 1) + "</span></nav>" +
+          '<div id="faixa-iniciar"></div>' +
           '<div class="video">' + video + "</div>" +
           '<div class="aula-cabecalho">' +
             "<div><h1>" + esc(aula.titulo) + "</h1><small>" + esc(atual.modulo.titulo) + " · Aula " + (i + 1) + " de " + aulas.length +
@@ -578,6 +641,22 @@
       botao.className = "botao " + (feito ? "botao-concluido" : "botao-principal");
       botao.innerHTML = feito ? icone.check + "Aula concluída" : "Marcar como concluída";
       botao.setAttribute("aria-pressed", feito ? "true" : "false");
+
+      // Ainda não iniciou: pode ver a aula, mas nada é registrado até confirmar
+      var faixa = document.getElementById("faixa-iniciar");
+      var mostrarFaixa = !iniciou(curso) && (!Conta.ativo || Conta.estado.pronto);
+      faixa.innerHTML = mostrarFaixa
+        ? '<div class="faixa-iniciar">' + icone.info +
+            "<span>Você está conhecendo este curso. Para acompanhar o seu progresso, inicie o curso.</span>" +
+            '<button type="button" class="botao botao-principal botao-pequeno" id="botao-iniciar-curso">Iniciar curso</button>' +
+          "</div>"
+        : "";
+      if (mostrarFaixa) {
+        document.getElementById("botao-iniciar-curso").addEventListener("click", function () {
+          iniciarCurso(curso, aula).then(function (sim) { if (sim) atualizar(); });
+        });
+      }
+
       document.getElementById("lateral").innerHTML =
         "<h3>" + esc(curso.titulo) + "</h3>" + barraProgresso(percentual(curso)) +
         (Conta.ativo && Conta.estado.pronto && !Conta.estado.usuario
@@ -588,8 +667,16 @@
     atualizar();
     atualizarPagina = atualizar;
     document.getElementById("botao-concluir").addEventListener("click", function () {
-      alternarConcluida(curso.id, aula.id);
-      atualizar();
+      if (iniciou(curso)) {
+        alternarConcluida(curso.id, aula.id);
+        return atualizar();
+      }
+      // Concluir uma aula sem ter iniciado: pergunta antes
+      iniciarCurso(curso, aula).then(function (sim) {
+        if (!sim) return;
+        alternarConcluida(curso.id, aula.id);
+        atualizar();
+      });
     });
     window.scrollTo(0, 0);
   }
@@ -1142,7 +1229,11 @@
 
   Conta.aoMudar(function (evento, detalhe) {
     if (evento === "pronto") {
-      if (visitaPendente) { Conta.registrarVisita(visitaPendente[0], visitaPendente[1]); visitaPendente = null; }
+      if (visitaPendente) {
+        var v = visitaPendente;
+        visitaPendente = null;
+        if (iniciou(v[0])) Conta.registrarVisita(v[0].id, v[1]);
+      }
       if (Conta.estado.acaoUrl === "nova-senha" && Conta.estado.usuario) return irPara("#/nova-senha");
       if (Conta.estado.acabouDeEntrar) return aoEntrar();
       if (Conta.estado.erroUrl && !/^#\/(entrar|criar-conta|recuperar-senha)/.test(location.hash)) return irPara("#/entrar");
