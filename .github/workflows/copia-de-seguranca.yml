@@ -1,0 +1,57 @@
+# Cópia de segurança semanal do banco de dados (Supabase).
+#
+# O repositório é PÚBLICO: por isso a cópia sai CRIPTOGRAFADA com a senha
+# BACKUP_SENHA (que só a igreja tem). Sem essa senha, o arquivo é ilegível.
+# Como configurar e como abrir uma cópia: supabase/GUIA-BACKUP.md
+name: Cópia de segurança semanal
+
+on:
+  schedule:
+    - cron: "0 9 * * 0" # todo domingo, 06:00 no horário de Fortaleza
+  workflow_dispatch: # permite rodar na hora, pelo botão "Run workflow"
+
+permissions:
+  contents: read
+
+jobs:
+  copia:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Instalar as ferramentas do PostgreSQL
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common > /dev/null
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y > /dev/null
+          sudo apt-get install -y -qq postgresql-client-17 > /dev/null
+
+      - name: Gerar a cópia criptografada
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_SENHA: ${{ secrets.BACKUP_SENHA }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DB_URL}" ] || [ -z "${BACKUP_SENHA}" ]; then
+            echo "::error::Faltam os segredos SUPABASE_DB_URL e/ou BACKUP_SENHA. Veja supabase/GUIA-BACKUP.md"
+            exit 1
+          fi
+          PG=/usr/lib/postgresql/17/bin
+          DATA=$(date -u +%Y-%m-%d)
+          mkdir -p copia
+          # 1) Tabelas da plataforma (perfis, progresso, matrículas, cursos, dúvidas, anotações...)
+          "$PG/pg_dump" "$DB_URL" --schema=public --no-owner --no-privileges -f copia/01-plataforma.sql
+          # 2) Contas de acesso (e-mails e logins dos alunos)
+          "$PG/pg_dump" "$DB_URL" --data-only --table=auth.users --table=auth.identities -f copia/02-contas.sql
+          tar -czf copia.tar.gz copia
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:BACKUP_SENHA \
+            -in copia.tar.gz -out "cfm-copia-${DATA}.tar.gz.enc"
+          rm -rf copia copia.tar.gz
+          echo "ARQUIVO=cfm-copia-${DATA}.tar.gz.enc" >> "$GITHUB_ENV"
+          echo "Cópia gerada: cfm-copia-${DATA}.tar.gz.enc ($(du -h cfm-copia-${DATA}.tar.gz.enc | cut -f1))"
+
+      - name: Guardar a cópia (fica disponível por 90 dias)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARQUIVO }}
+          path: ${{ env.ARQUIVO }}
+          retention-days: 90
+          if-no-files-found: error

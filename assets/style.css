@@ -813,3 +813,23 @@ a.linha-pessoa:hover { background: var(--superficie-2); }
 .bloco-em-breve .card-capa { aspect-ratio: 16 / 7; }
 .bloco-em-breve .card-capa-titulo { font-size: 22px; }
 .etiqueta.com-prereq { background: rgba(15,13,12,.8); color: var(--amarelo); border: 1px solid rgba(251,176,59,.6); }
+
+/* ============================================================
+   CONVITE PARA INSTALAR O APLICATIVO
+   ============================================================ */
+.convite-instalar {
+  position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 60;
+  width: min(520px, calc(100% - 24px)); display: flex; align-items: center; gap: 14px;
+  background: var(--superficie-2); border: 1px solid rgba(247,134,28,.55); border-radius: var(--raio);
+  padding: 14px 16px; box-shadow: 0 16px 40px rgba(0,0,0,.55); animation: convite-subir .3s ease-out;
+}
+.convite-instalar img { border-radius: 12px; flex-shrink: 0; }
+.convite-texto { flex: 1; min-width: 0; display: grid; gap: 2px; font-size: 14px; color: var(--texto-suave); }
+.convite-texto strong { color: var(--texto); font-size: 15px; }
+.convite-texto b { color: var(--texto); }
+.convite-acoes { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
+@keyframes convite-subir { from { opacity: 0; transform: translate(-50%, 20px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@media (max-width: 420px) {
+  .convite-instalar { flex-wrap: wrap; }
+  .convite-acoes { flex-direction: row; width: 100%; justify-content: flex-end; }
+}
