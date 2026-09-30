@@ -147,11 +147,18 @@
     if ((Conta.estado.equipe || []).some(function (e) { return e.curso_id === curso.id; })) return true;
     return (Conta.estado.dispensas || []).indexOf(curso.id) >= 0;
   }
-  function prerequisitosPendentes(curso) {
+  // O que a pessoa ainda NÃO concluiu de verdade (usado nas seções e etiquetas da página inicial).
+  // Só a liberação individual dada no painel conta como pré-requisito cumprido.
+  function prerequisitosNaoConcluidos(curso) {
     var p = prerequisitosDe(curso);
-    if (!p.cursos.length || semPrerequisito(curso)) return [];
+    if (!p.cursos.length) return [];
+    if (Conta.ativo && Conta.estado.usuario && (Conta.estado.dispensas || []).indexOf(curso.id) >= 0) return [];
     if (p.modo === "qualquer") return p.cursos.some(concluiuCurso) ? [] : p.cursos;
     return p.cursos.filter(function (c) { return !concluiuCurso(c); });
+  }
+  // O que impede de ABRIR as aulas: a equipe (conselho, admin, professor/tutor do curso) não precisa do pré-requisito
+  function prerequisitosPendentes(curso) {
+    return semPrerequisito(curso) ? [] : prerequisitosNaoConcluidos(curso);
   }
   function textoPrerequisitos(curso) {
     var p = prerequisitosDe(curso);
@@ -343,7 +350,7 @@
     if (s === "encerrado") return { texto: "Encerrado", classe: "oculto" };
     if (!temAulas(curso)) return { texto: "Em breve", classe: "" };
     if (s === "agendado") return { texto: "Abre em " + dataCurta(c.abre_em), classe: "agendado" };
-    if (prerequisitosPendentes(curso).length) return { texto: "Com pré-requisito", classe: "com-prereq" };
+    if (prerequisitosNaoConcluidos(curso).length) return { texto: "Com pré-requisito", classe: "com-prereq" };
     return { texto: "Disponível", classe: "disponivel" };
   }
 
@@ -408,7 +415,7 @@
   // vê o curso "subir" de Próximos passos para Cursos disponíveis)
   function grupoDoCurso(c) {
     if (!temAulas(c) || situacao(c) === "agendado") return "embreve";
-    if (prerequisitosPendentes(c).length) return "proximos";
+    if (prerequisitosNaoConcluidos(c).length) return "proximos";
     return "disponiveis";
   }
   function blocoCursos(sobretitulo, titulo, texto, lista, extra) {
