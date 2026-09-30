@@ -61,7 +61,8 @@
       cl.from("perfis").select("*").order("nome_completo", { ascending: true }),
       cl.rpc("resumo_progresso"),
       cl.from("equipe_curso").select("usuario_id, curso_id, funcao"),
-      cl.from("prerequisito_dispensas").select("*")
+      cl.from("prerequisito_dispensas").select("*"),
+      cl.from("matriculas").select("usuario_id, curso_id, iniciado_em, ultima_visita_em")
     ]);
     r.slice(0, 3).forEach(function (x) { if (x.error) throw x.error; });
 
@@ -71,6 +72,15 @@
       progresso[l.usuario_id][l.curso_id] = { aulas: l.aulas_concluidas, ultima: l.ultima_atividade };
     });
     // Liberações de pré-requisito (se o script 04 ainda não foi rodado, segue sem elas)
+    // Matrículas: quem abriu um curso conta como "iniciado", mesmo sem aula concluída
+    // (se o script 06 ainda não foi rodado, segue só com o progresso)
+    (r[4].error ? [] : r[4].data).forEach(function (m) {
+      progresso[m.usuario_id] = progresso[m.usuario_id] || {};
+      var p = progresso[m.usuario_id][m.curso_id] || { aulas: 0, ultima: null };
+      p.iniciado = m.iniciado_em;
+      if (!p.ultima || Date.parse(m.ultima_visita_em) > Date.parse(p.ultima)) p.ultima = m.ultima_visita_em;
+      progresso[m.usuario_id][m.curso_id] = p;
+    });
     dados = { pessoas: r[0].data, progresso: progresso, equipe: r[2].data, dispensas: r[3].error ? [] : r[3].data };
     return dados;
   }
@@ -277,8 +287,12 @@
       var total = C.todasAulas(c).length || 1;
       return '<div class="meu-curso"><div class="meu-curso-info"><h3>' + esc(c.titulo) + "</h3>" +
         C.barraProgresso(Math.min(100, Math.round((feitas / total) * 100))) +
-        '<small class="suave">' + feitas + " de " + C.todasAulas(c).length + " aulas" +
-        (prog[c.id] ? " · última atividade em " + data(prog[c.id].ultima) : "") + "</small></div></div>";
+        '<small class="suave">' +
+          (prog[c.id]
+            ? (prog[c.id].iniciado ? "Iniciado em " + data(prog[c.id].iniciado) + " · " : "") +
+              feitas + " de " + C.todasAulas(c).length + " aulas concluídas · última atividade em " + data(prog[c.id].ultima)
+            : "Ainda não iniciou") +
+        "</small></div></div>";
     }).join("");
 
     var acesso = "";

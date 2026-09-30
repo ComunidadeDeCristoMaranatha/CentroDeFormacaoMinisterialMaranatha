@@ -14,7 +14,8 @@
     : null;
 
   var CHAVE_LOCAL = "cfm-progresso-v1";
-  var estado = { pronto: !ativo, usuario: null, perfil: null, equipe: [], dispensas: [], progresso: {}, acaoUrl: null, erroUrl: null, acabouDeEntrar: false };
+  var CHAVE_MATRICULAS = "cfm-matriculas-v1";
+  var estado = { pronto: !ativo, usuario: null, perfil: null, equipe: [], dispensas: [], progresso: {}, matriculas: {}, acaoUrl: null, erroUrl: null, acabouDeEntrar: false };
   var ouvintes = [];
 
   function avisar(evento, detalhe) {
@@ -33,6 +34,18 @@
     try { localStorage.removeItem(CHAVE_LOCAL); } catch (e) { /* nada a fazer */ }
   }
   estado.progresso = lerLocal();
+
+  // Matrículas (cursos iniciados) de quem ainda não entrou na conta
+  function lerMatriculasLocais() {
+    try { return JSON.parse(localStorage.getItem(CHAVE_MATRICULAS)) || {}; } catch (e) { return {}; }
+  }
+  function salvarMatriculasLocais() {
+    try { localStorage.setItem(CHAVE_MATRICULAS, JSON.stringify(estado.matriculas)); } catch (e) { /* ok */ }
+  }
+  function limparMatriculasLocais() {
+    try { localStorage.removeItem(CHAVE_MATRICULAS); } catch (e) { /* ok */ }
+  }
+  estado.matriculas = lerMatriculasLocais();
 
   /* ---------- Depois de entrar: carrega perfil e junta o progresso ---------- */
   async function carregarPerfil() {
@@ -74,10 +87,32 @@
     estado.progresso = p;
   }
 
+  // Leva para a conta os cursos iniciados antes de entrar e carrega as matrículas
+  // (se a tabela ainda não existir — script 06 não rodado — segue sem elas)
+  async function sincronizarMatriculas() {
+    var locais = lerMatriculasLocais();
+    var linhas = Object.keys(locais).map(function (curso) {
+      var m = locais[curso];
+      return { usuario_id: estado.usuario.id, curso_id: curso, iniciado_em: m.iniciado_em, ultima_aula_id: m.ultima_aula_id, ultima_visita_em: m.ultima_visita_em };
+    });
+    if (linhas.length) {
+      var envio = await cliente.from("matriculas").upsert(linhas, { onConflict: "usuario_id,curso_id", ignoreDuplicates: true });
+      if (envio.error) { console.error(envio.error); return; }
+    }
+    limparMatriculasLocais();
+
+    var r = await cliente.from("matriculas").select("curso_id, iniciado_em, ultima_aula_id, ultima_visita_em");
+    if (r.error) { console.error(r.error); estado.matriculas = {}; return; }
+    var m = {};
+    r.data.forEach(function (l) { m[l.curso_id] = l; });
+    estado.matriculas = m;
+  }
+
   async function aposLogin() {
     try {
       await carregarPerfil();
       await sincronizarProgresso();
+      await sincronizarMatriculas();
     } catch (e) {
       console.error(e);
       avisar("erro", "Não foi possível carregar seus dados agora. Tente atualizar a página.");
@@ -90,7 +125,9 @@
     estado.equipe = [];
     estado.dispensas = [];
     estado.progresso = {};
+    estado.matriculas = {};
     limparLocal();
+    limparMatriculasLocais();
   }
 
   /* ---------- Inicialização ---------- */
@@ -204,6 +241,26 @@
     return !!(p && p.nome_completo && p.telefone && p.cidade && p.estado && p.igreja && p.aceitou_termos_em);
   }
 
+  /* ---------- Matrícula: registra o curso como iniciado ao abrir uma aula ---------- */
+  function matricula(cursoId) { return estado.matriculas[cursoId] || null; }
+
+  function registrarVisita(cursoId, aulaId) {
+    var agora = new Date().toISOString();
+    var atual = estado.matriculas[cursoId];
+    estado.matriculas[cursoId] = {
+      curso_id: cursoId,
+      iniciado_em: atual ? atual.iniciado_em : agora,
+      ultima_aula_id: aulaId,
+      ultima_visita_em: agora
+    };
+    if (!estado.usuario) { salvarMatriculasLocais(); return; }
+    // Na 1ª vez cria a matrícula (data de início = agora); depois só atualiza a última aula
+    cliente.from("matriculas").upsert(
+      { usuario_id: estado.usuario.id, curso_id: cursoId, ultima_aula_id: aulaId, ultima_visita_em: agora },
+      { onConflict: "usuario_id,curso_id" }
+    ).then(function (r) { if (r.error) console.error(r.error); });
+  }
+
   /* ---------- Marcar aulas ---------- */
   function concluida(cursoId, aulaId) {
     return !!(estado.progresso[cursoId] && estado.progresso[cursoId][aulaId]);
@@ -255,6 +312,8 @@
     sair: sair,
     excluirConta: excluirConta,
     concluida: concluida,
-    alternar: alternar
+    alternar: alternar,
+    matricula: matricula,
+    registrarVisita: registrarVisita
   };
 })();

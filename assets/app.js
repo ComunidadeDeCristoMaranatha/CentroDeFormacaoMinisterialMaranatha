@@ -141,6 +141,23 @@
     for (var i = 0; i < aulas.length; i++) if (!concluida(curso.id, aulas[i].aula.id)) return aulas[i].aula;
     return aulas[0] && aulas[0].aula;
   }
+  // O aluno já iniciou o curso? (abriu alguma aula ou concluiu alguma)
+  function iniciou(curso) { return !!Conta.matricula(curso.id) || percentual(curso) > 0; }
+  // Para onde o "Continuar" leva: a última aula visitada (se ainda não concluída) ou a próxima não concluída
+  function aulaParaContinuar(curso) {
+    var m = Conta.matricula(curso.id);
+    if (m && m.ultima_aula_id && !concluida(curso.id, m.ultima_aula_id)) {
+      var ultima = todasAulas(curso).filter(function (x) { return x.aula.id === m.ultima_aula_id; })[0];
+      if (ultima) return ultima.aula;
+    }
+    return proximaAula(curso);
+  }
+  // Registra a matrícula ao abrir a aula (se a conta ainda está carregando, registra quando terminar)
+  var visitaPendente = null;
+  function registrarVisita(cursoId, aulaId) {
+    if (Conta.ativo && !Conta.estado.pronto) { visitaPendente = [cursoId, aulaId]; return; }
+    Conta.registrarVisita(cursoId, aulaId);
+  }
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
@@ -375,7 +392,9 @@
     var aulas = todasAulas(curso);
     var p = percentual(curso);
     var prox = proximaAula(curso);
-    var textoBotao = p === 0 ? "Começar o curso" : p === 100 ? "Rever o curso" : "Continuar de onde parei";
+    var comecou = iniciou(curso);
+    if (comecou && p < 100) prox = aulaParaContinuar(curso);
+    var textoBotao = p === 100 ? "Rever o curso" : comecou ? "Continuar de onde parei" : "Começar o curso";
 
     var aviso = "";
     if (s !== "aberto" && ehAdmin()) {
@@ -512,6 +531,8 @@
 
     var acesso = acessoAula(curso, i);
     if (!acesso.ok) return acesso.motivo === "carregando" ? carregando() : aulaTrancada(curso, aulas, i, acesso);
+
+    registrarVisita(curso.id, aulas[i].aula.id);
 
     var atual = aulas[i];
     var aula = atual.aula;
@@ -909,12 +930,17 @@
     var p = Conta.estado.perfil || {};
     var primeiro = (p.nome_completo || "").split(" ")[0];
 
-    var emAndamento = CURSOS.filter(function (c) { return temAulas(c) && visivelNoSite(c) && percentual(c) > 0; });
+    // Cursos iniciados, do visitado mais recentemente para o mais antigo
+    var visita = function (c) { var m = Conta.matricula(c.id); return m ? Date.parse(m.ultima_visita_em) : 0; };
+    var emAndamento = CURSOS.filter(function (c) { return temAulas(c) && visivelNoSite(c) && iniciou(c); })
+      .sort(function (a, b) { return visita(b) - visita(a); });
     var meusCursos = emAndamento.length
       ? emAndamento.map(function (c) {
           var pc = percentual(c);
-          var prox = proximaAula(c);
-          return '<div class="meu-curso"><div class="meu-curso-info"><h3>' + esc(c.titulo) + "</h3>" + barraProgresso(pc) + "</div>" +
+          var prox = aulaParaContinuar(c);
+          var m = Conta.matricula(c.id);
+          return '<div class="meu-curso"><div class="meu-curso-info"><h3>' + esc(c.titulo) + "</h3>" + barraProgresso(pc) +
+            (m ? '<small class="suave">Iniciado em ' + dataCurta(m.iniciado_em) + "</small>" : "") + "</div>" +
             '<a class="botao botao-secundario botao-pequeno" href="#/curso/' + esc(c.id) + (pc < 100 && prox ? "/aula/" + esc(prox.id) : "") + '">' +
             (pc === 100 ? "Ver curso" : "Continuar") + "</a></div>";
         }).join("")
@@ -1116,6 +1142,7 @@
 
   Conta.aoMudar(function (evento, detalhe) {
     if (evento === "pronto") {
+      if (visitaPendente) { Conta.registrarVisita(visitaPendente[0], visitaPendente[1]); visitaPendente = null; }
       if (Conta.estado.acaoUrl === "nova-senha" && Conta.estado.usuario) return irPara("#/nova-senha");
       if (Conta.estado.acabouDeEntrar) return aoEntrar();
       if (Conta.estado.erroUrl && !/^#\/(entrar|criar-conta|recuperar-senha)/.test(location.hash)) return irPara("#/entrar");
